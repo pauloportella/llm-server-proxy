@@ -1,6 +1,8 @@
 services:
   llm-proxy:
-    build: .
+    build:
+      context: .
+      network: host
     container_name: llm-queue-proxy
     network_mode: host
     volumes:
