@@ -9,7 +9,7 @@ from contextlib import asynccontextmanager
 import aiohttp
 import docker
 from fastapi import FastAPI, HTTPException, Request
-from fastapi.responses import JSONResponse
+from fastapi.responses import JSONResponse, StreamingResponse
 
 from .config import Config
 from .models import (
@@ -179,6 +179,27 @@ async def list_models():
     return ModelListResponse(data=models)
 
 
+async def stream_response(backend_url: str, request_data: dict):
+    """Stream response from backend."""
+    async with aiohttp.ClientSession() as session:
+        async with session.post(
+            f"{backend_url}/chat/completions",
+            json=request_data,
+            timeout=aiohttp.ClientTimeout(total=config.request_timeout)
+        ) as response:
+            if response.status != 200:
+                error_text = await response.text()
+                raise HTTPException(
+                    status_code=response.status,
+                    detail=f"Backend error: {error_text}"
+                )
+
+            # Stream the response chunks
+            async for chunk in response.content.iter_any():
+                if chunk:
+                    yield chunk
+
+
 @app.post("/v1/chat/completions")
 async def chat_completions(request: ChatCompletionRequest):
     """Handle chat completion with queueing and model swapping."""
@@ -191,6 +212,22 @@ async def chat_completions(request: ChatCompletionRequest):
             detail=f"Unknown model: {model}. Available: {config.list_models()}"
         )
 
+    # Handle streaming requests differently (direct processing with lock)
+    if request.stream:
+        logger.info(f"Streaming request for model: {model}")
+
+        async with processing_lock:
+            # Switch to requested model
+            await switch_model(model)
+
+            # Get model config and stream response
+            model_config = config.get_model(model)
+            return StreamingResponse(
+                stream_response(model_config.backend_url, request.model_dump()),
+                media_type="text/event-stream"
+            )
+
+    # Non-streaming: use queue pattern
     # Check queue capacity
     if request_queue.full():
         raise HTTPException(
