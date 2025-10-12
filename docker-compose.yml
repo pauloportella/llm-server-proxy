@@ -1,0 +1,16 @@
+services:
+  llm-proxy:
+    build: .
+    container_name: llm-queue-proxy
+    network_mode: host
+    volumes:
+      - /var/run/docker.sock:/var/run/docker.sock:ro
+      - ./config.yml:/app/config.yml:ro
+    restart: unless-stopped
+    environment:
+      - PYTHONUNBUFFERED=1
+    logging:
+      driver: json-file
+      options:
+        max-size: "10m"
+        max-file: "3"

@@ -1,0 +1,18 @@
+# LLM Queue Proxy Dependencies
+# Python 3.12+
+
+# Web framework
+fastapi==0.115.0
+uvicorn[standard]==0.32.0
+
+# HTTP client
+aiohttp==3.11.0
+
+# YAML config
+pyyaml==6.0.2
+
+# Docker SDK
+docker==7.1.0
+
+# Pydantic (included with FastAPI but pinned for clarity)
+pydantic==2.9.2

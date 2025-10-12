@@ -1,0 +1,287 @@
+# LLM Queue Proxy
+
+OpenAI-compatible proxy server with automatic model swapping and request queueing for single-GPU homelab deployments.
+
+## Features
+
+- **OpenAI API Compatible** - Works with Open WebUI, n8n, and any OpenAI client
+- **Automatic Model Swapping** - Safely switches between models by stopping/starting Docker containers
+- **Request Queueing** - FIFO queue with configurable capacity (default: 50 requests)
+- **Single GPU Safety** - Only one model loaded at a time, prevents GPU memory crashes
+- **Health Monitoring** - Polls backend health endpoints before forwarding requests
+- **Zero Latency** - No request forwarding until model is fully loaded and ready
+
+## Architecture
+
+```
+Client Request → Queue → Model Switcher → Backend LLM → Response
+                   ↓
+            [docker stop old]
+            [docker start new]
+            [poll /health]
+```
+
+**Key Design:**
+- Only 1 concurrent GPU request at a time
+- Requests queue while model is switching
+- Health check polling prevents premature requests
+- Stability > Latency (homelab optimized)
+
+## Prerequisites
+
+**1. Create Backend Containers**
+
+The proxy manages existing containers. Create them first (stopped state is fine):
+
+```bash
+# GPT-OSS-120B
+docker create --name gpt-oss-server -p 8080:8080 \
+  --device /dev/dri --device /dev/kfd \
+  -v /mnt/ai_models:/models \
+  kyuz0/amd-strix-halo-toolboxes:vulkan-radv \
+  llama-server -m /models/huggingface/gpt-oss-120b-Q4_K_M/gpt-oss-120b-Q4_K_M-00001-of-00002.gguf \
+  --alias gpt-oss-120b -ngl 999 -c 65536 \
+  --cache-type-k q4_0 --cache-type-v q4_0 \
+  --host 0.0.0.0 --port 8080 --jinja
+
+# Qwen3-Coder-30B
+docker create --name qwen-server -p 8080:8080 \
+  --device /dev/dri --device /dev/kfd \
+  -v /mnt/ai_models:/models \
+  kyuz0/amd-strix-halo-toolboxes:vulkan-radv \
+  llama-server -m /models/huggingface/hub/models--unsloth--Qwen3-Coder-30B-A3B-Instruct-GGUF/snapshots/7ce945e58ed3f09f9cf9c33a2122d86ac979b457/Qwen3-Coder-30B-A3B-Instruct-Q4_K_M.gguf \
+  --alias qwen3-coder-30b -ngl 999 -c 65536 \
+  --cache-type-k q8_0 --cache-type-v q8_0 \
+  --host 0.0.0.0 --port 8080 --jinja
+
+# Dolphin-Mistral-24B
+docker create --name dolphin-server -p 8081:8081 \
+  --device /dev/dri --device /dev/kfd \
+  -v /mnt/ai_models:/models \
+  kyuz0/amd-strix-halo-toolboxes:vulkan-radv \
+  llama-server -m /models/huggingface/dolphin-mistral-24b-venice/cognitivecomputations_Dolphin-Mistral-24B-Venice-Edition-Q6_K_L.gguf \
+  --alias dolphin-mistral-24b -ngl 999 -c 32768 \
+  --cache-type-k q4_0 --cache-type-v q4_0 \
+  --host 0.0.0.0 --port 8081 --jinja
+```
+
+**2. Firewall Configuration**
+
+```bash
+# Open proxy port on Netbird interface
+ufw allow in on wt0 to any port 8888 proto tcp comment 'LLM Queue Proxy'
+```
+
+## Installation
+
+**1. Build and Start**
+
+```bash
+cd ~/Dev/AI/llm-server-proxy
+docker-compose up -d --build
+```
+
+**2. View Logs**
+
+```bash
+docker logs -f llm-queue-proxy
+```
+
+**3. Check Health**
+
+```bash
+curl http://localhost:8888/health
+```
+
+## Configuration
+
+Edit `config.yml` to add/modify models:
+
+```yaml
+queue_size: 50
+request_timeout: 600
+
+models:
+  your-model-name:
+    container_name: your-container
+    backend_url: http://localhost:8080/v1
+    health_url: http://localhost:8080/health
+    startup_timeout: 90
+```
+
+After changes, restart the proxy:
+
+```bash
+docker-compose restart
+```
+
+## Usage
+
+**API Endpoint:** `http://100.78.198.217:8888`
+
+### List Available Models
+
+```bash
+curl http://100.78.198.217:8888/v1/models
+```
+
+Response:
+```json
+{
+  "object": "list",
+  "data": [
+    {
+      "id": "gpt-oss-120b",
+      "object": "model",
+      "created": 1697000000,
+      "owned_by": "local"
+    },
+    ...
+  ]
+}
+```
+
+### Chat Completion
+
+```bash
+curl -X POST http://100.78.198.217:8888/v1/chat/completions \
+  -H "Content-Type: application/json" \
+  -d '{
+    "model": "gpt-oss-120b",
+    "messages": [
+      {"role": "user", "content": "Explain quantum computing"}
+    ],
+    "temperature": 0.7
+  }'
+```
+
+**Model Switching Example:**
+
+```bash
+# First request uses GPT-OSS-120B (cold start: ~180s)
+curl ... -d '{"model": "gpt-oss-120b", ...}'
+
+# Second request also uses GPT-OSS-120B (instant, already loaded)
+curl ... -d '{"model": "gpt-oss-120b", ...}'
+
+# Third request switches to Dolphin-24B (wait ~90s for swap)
+curl ... -d '{"model": "dolphin-mistral-24b", ...}'
+```
+
+### Health Check
+
+```bash
+curl http://100.78.198.217:8888/health
+```
+
+Response:
+```json
+{
+  "status": "healthy",
+  "current_model": "gpt-oss-120b",
+  "queue_size": 2,
+  "queue_capacity": 50,
+  "message": "Proxy is operational"
+}
+```
+
+## Integration Examples
+
+### Open WebUI
+
+1. Go to Settings → Connections
+2. Add OpenAI Connection:
+   - **API URL:** `http://100.78.198.217:8888/v1`
+   - **API Key:** (leave empty or use any string)
+3. Models will appear automatically
+
+### n8n
+
+Use the OpenAI node with:
+- **Base URL:** `http://100.78.198.217:8888/v1`
+- **Model:** Choose from dropdown (gpt-oss-120b, qwen3-coder-30b, dolphin-mistral-24b)
+
+### Python
+
+```python
+from openai import OpenAI
+
+client = OpenAI(
+    base_url="http://100.78.198.217:8888/v1",
+    api_key="not-needed"
+)
+
+response = client.chat.completions.create(
+    model="gpt-oss-120b",
+    messages=[{"role": "user", "content": "Hello!"}]
+)
+print(response.choices[0].message.content)
+```
+
+## Troubleshooting
+
+### Container not found error
+
+**Problem:** `Container not found: gpt-oss-server`
+
+**Solution:** Create the container first using docker create commands above.
+
+### Model not loading
+
+**Problem:** Request times out after 180s
+
+**Solutions:**
+1. Check backend container logs: `docker logs gpt-oss-server`
+2. Verify GPU access: `docker exec gpt-oss-server vulkaninfo | grep deviceName`
+3. Increase `startup_timeout` in config.yml
+
+### Queue full
+
+**Problem:** `Queue full (50 requests). Try again later.`
+
+**Solution:** Increase `queue_size` in config.yml or wait for pending requests to complete.
+
+### Model switching stuck
+
+**Problem:** Model switch takes longer than expected
+
+**Checks:**
+1. Verify old container stopped: `docker ps -a`
+2. Check proxy logs: `docker logs -f llm-queue-proxy`
+3. Manually test health: `curl http://localhost:8080/health`
+
+## Performance Notes
+
+**Startup Times (from CACHYOS_SETUP.md):**
+- GPT-OSS-120B (63GB): ~180s
+- Qwen3-Coder-30B (19GB): ~90s
+- Dolphin-Mistral-24B (19.67GB): ~90s
+
+**Recommendations:**
+- Use same model for consecutive requests to avoid swapping
+- Pre-load your most common model: `docker start gpt-oss-server`
+- Monitor queue: `watch -n 1 'curl -s http://localhost:8888/health'`
+
+## Project Structure
+
+```
+llm-server-proxy/
+├── app/
+│   ├── main.py       # FastAPI app, queue, Docker management
+│   ├── config.py     # YAML config loader
+│   └── models.py     # Pydantic models
+├── config.yml        # Model definitions
+├── docker-compose.yml
+├── Dockerfile
+├── requirements.txt
+└── README.md
+```
+
+## License
+
+MIT
+
+## Related Documentation
+
+- [CACHYOS_SETUP.md](../../dotfiles/CACHYOS_SETUP.md) - Backend model setup
+- [AMD Strix Halo Toolboxes](https://github.com/kyuz0/amd-strix-halo-toolboxes)

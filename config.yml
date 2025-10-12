@@ -1,0 +1,28 @@
+# LLM Queue Proxy Configuration
+
+# Global settings
+queue_size: 50
+request_timeout: 600  # 10 minutes
+
+# Model definitions
+# NOTE: Containers must be created beforehand using the docker run commands
+# from CACHYOS_SETUP.md. This proxy only starts/stops existing containers.
+
+models:
+  gpt-oss-120b:
+    container_name: gpt-oss-server
+    backend_url: http://localhost:8080/v1
+    health_url: http://localhost:8080/health
+    startup_timeout: 180  # 3 minutes (120B model is slow to load)
+
+  qwen3-coder-30b:
+    container_name: qwen-server
+    backend_url: http://localhost:8080/v1
+    health_url: http://localhost:8080/health
+    startup_timeout: 90  # ~1.5 minutes for 30B model
+
+  dolphin-mistral-24b:
+    container_name: dolphin-server
+    backend_url: http://localhost:8081/v1
+    health_url: http://localhost:8081/health
+    startup_timeout: 90  # ~1.5 minutes for 24B model
