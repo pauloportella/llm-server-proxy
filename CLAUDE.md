@@ -13,7 +13,8 @@ This file provides guidance to Claude Code when working with this repository.
 ### Core Components
 
 1. **app/main.py** - FastAPI application with:
-   - Request queue (asyncio.Queue, FIFO)
+   - Redis-based request queue (FIFO, persistent)
+   - Multiple parallel queue workers (configurable)
    - Model switcher (Docker SDK start/stop)
    - Health polling (waits for backend readiness)
    - OpenAI-compatible endpoints
@@ -55,10 +56,12 @@ This file provides guidance to Claude Code when working with this repository.
 - Prevents forwarding requests to unready backends
 - Graceful handling of startup delays
 
-**Why global processing lock?**
-- Guarantees only 1 concurrent GPU request
-- Prevents race conditions in model switching
-- Critical for single-GPU stability
+**Why separate model_switch_lock and parallel workers? (v2.1)**
+- **model_switch_lock**: Serializes Docker operations (container start/stop) only
+- **Parallel workers**: Multiple workers can forward requests to same backend concurrently
+- **Result**: When model is already loaded, requests process in parallel (~2x speedup)
+- **Safety**: Model switching still serialized (no GPU memory conflicts)
+- **Metrics lock**: Protects counter updates from race conditions
 
 ## Development Workflow
 
@@ -203,6 +206,7 @@ docker exec llm-queue-redis redis-cli -a redis_password
 - `REDIS_PORT` - Redis port (default: 6379)
 - `REDIS_PASSWORD` - Redis password (default: redis_password)
 - `REDIS_DB` - Redis database number (default: 0)
+- `NUM_WORKERS` - Number of parallel queue workers (default: 2)
 
 ### Docker Compose Settings
 
@@ -283,6 +287,16 @@ When adding new OpenAI endpoints (e.g., /v1/embeddings):
 - ✅ Added constants for magic numbers (`JOB_PROCESSING_TIMEOUT_SECONDS = 300`, `DEFAULT_MAX_RETRIES = 3`)
 - ✅ Comprehensive integration tests in `tests/test_integration.py`
 
+**v2.1 - Parallel Workers (Current):**
+- ✅ Split `processing_lock` into `model_switch_lock` (Docker ops) and `metrics_lock` (counters)
+- ✅ Multiple parallel queue workers (configurable via `NUM_WORKERS`, default: 2)
+- ✅ ~2x speedup for concurrent requests to same model
+- ✅ Model switching still serialized for safety (no GPU conflicts)
+- ✅ Worker ID in logs for debugging (`[Worker 0]`, `[Worker 1]`)
+- ✅ New metrics: `active_workers`, `peak_concurrent_requests`, `num_workers`
+- ✅ Client disconnection detection (checks every 0.5s)
+- ✅ Race-free metrics updates with async locks
+
 **Future Enhancements:**
 - Authentication/API keys
 - Rate limiting per user
@@ -290,7 +304,7 @@ When adding new OpenAI endpoints (e.g., /v1/embeddings):
 - Model preloading (keep N models warm)
 - Prometheus metrics export
 - Request priority levels (currently uniform)
-- Multi-worker scaling (requires queue index management)
+- Dynamic worker scaling based on queue depth
 
 ## Notes
 

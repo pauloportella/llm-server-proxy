@@ -3,6 +3,7 @@
 # Global settings
 queue_size: 50
 request_timeout: 600  # 10 minutes
+num_workers: 2  # Number of parallel queue workers (default: 2 for local deployment)
 
 # Redis settings (from environment variables if set)
 # REDIS_HOST: localhost (default)

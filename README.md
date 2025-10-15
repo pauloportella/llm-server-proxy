@@ -6,26 +6,30 @@ OpenAI-compatible proxy server with automatic model swapping and request queuein
 
 - **OpenAI API Compatible** - Works with Open WebUI, n8n, and any OpenAI client
 - **Automatic Model Swapping** - Safely switches between models by stopping/starting Docker containers
-- **Request Queueing** - FIFO queue with configurable capacity (default: 50 requests)
+- **Parallel Request Processing** - Multiple workers process requests concurrently (~2x speedup for same model)
+- **Reliable Redis Queue** - Persistent FIFO queue with job acknowledgement and retry
 - **Single GPU Safety** - Only one model loaded at a time, prevents GPU memory crashes
 - **Health Monitoring** - Polls backend health endpoints before forwarding requests
+- **Client Cancellation Detection** - Automatically detects and skips cancelled requests
 - **Zero Latency** - No request forwarding until model is fully loaded and ready
 
 ## Architecture
 
 ```
-Client Request → Queue → Model Switcher → Backend LLM → Response
-                   ↓
-            [docker stop old]
-            [docker start new]
-            [poll /health]
+Client Request → Redis Queue → Worker Pool (2 workers) → Backend LLM → Response
+                                    ↓
+                           [model_switch_lock]
+                           [docker stop old]
+                           [docker start new]
+                           [poll /health]
 ```
 
-**Key Design:**
-- Only 1 concurrent GPU request at a time
-- Requests queue while model is switching
-- Health check polling prevents premature requests
-- Stability > Latency (homelab optimized)
+**Key Design (v2.1):**
+- **Parallel Processing**: 2 workers process requests concurrently when model is loaded
+- **Safe Model Switching**: model_switch_lock serializes Docker operations (no GPU conflicts)
+- **Redis Persistence**: Queue survives restarts, failed jobs auto-retry
+- **Client Detection**: Cancelled requests automatically skipped
+- **Stability > Latency** (homelab optimized)
 
 ## Prerequisites
 
@@ -191,6 +195,7 @@ Edit `config.yml` to add/modify models:
 ```yaml
 queue_size: 50
 request_timeout: 600
+num_workers: 2  # Number of parallel queue workers
 
 models:
   your-model-name:
@@ -198,6 +203,17 @@ models:
     backend_url: http://localhost:8080/v1
     health_url: http://localhost:8080/health
     startup_timeout: 90
+```
+
+**Environment Variables:**
+- `NUM_WORKERS` - Override worker count (default: 2)
+
+```bash
+# Run with 4 workers for higher concurrency
+NUM_WORKERS=4 docker-compose up -d
+
+# Run with 1 worker for backward compatibility
+NUM_WORKERS=1 docker-compose up -d
 ```
 
 After changes, restart the proxy:
@@ -341,6 +357,35 @@ Response:
 }
 ```
 
+### Metrics
+
+```bash
+curl http://100.78.198.217:8888/metrics
+```
+
+Response:
+```json
+{
+  "uptime_seconds": 3600,
+  "total_requests": 150,
+  "successful_requests": 148,
+  "failed_requests": 0,
+  "cancelled_requests": 2,
+  "active_workers": 1,
+  "peak_concurrent_requests": 2,
+  "num_workers": 2,
+  "success_rate": 0.987,
+  "queue_stats": {
+    "pending_jobs": 0,
+    "processing_jobs": 1,
+    "dead_letter_queue": 0,
+    "total_jobs": 1
+  },
+  "current_model": "qwen3-30b-instruct",
+  "pending_futures": 3
+}
+```
+
 ## Integration Examples
 
 ### Open WebUI
@@ -428,19 +473,25 @@ print(response.choices[0].message.content)
 - Use same model for consecutive requests to avoid swapping
 - Pre-load your most common model: `docker start gpt-oss-server`
 - Monitor queue: `watch -n 1 'curl -s http://localhost:8888/health'`
+- Send concurrent requests to maximize parallel processing
+- Check metrics to tune worker count: `curl http://localhost:8888/metrics | jq`
 
 ## Project Structure
 
 ```
 llm-server-proxy/
 ├── app/
-│   ├── main.py       # FastAPI app, queue, Docker management
-│   ├── config.py     # YAML config loader
-│   └── models.py     # Pydantic models
-├── config.yml        # Model definitions
-├── docker-compose.yml
+│   ├── main.py         # FastAPI app, workers, Docker management
+│   ├── redis_queue.py  # Redis-based reliable queue
+│   ├── config.py       # YAML config loader
+│   └── models.py       # Pydantic models
+├── tests/
+│   └── test_integration.py  # Integration tests
+├── config.yml          # Model definitions
+├── docker-compose.yml  # Proxy + Redis services
 ├── Dockerfile
 ├── requirements.txt
+├── CLAUDE.md           # Technical documentation
 └── README.md
 ```
 

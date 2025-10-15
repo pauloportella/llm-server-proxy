@@ -38,6 +38,7 @@ services:
       - REDIS_PORT=6379
       - REDIS_PASSWORD=redis_password
       - REDIS_DB=0
+      - NUM_WORKERS=${NUM_WORKERS:-2}  # Override via env or default to 2
     logging:
       driver: json-file
       options:

@@ -34,8 +34,10 @@ logger = logging.getLogger(__name__)
 # Global state
 config = Config()
 docker_client = docker.from_env()
-processing_lock = asyncio.Lock()
+model_switch_lock = asyncio.Lock()  # Protects Docker operations only
+metrics_lock = asyncio.Lock()       # Protects metrics counters
 current_model: Optional[str] = None
+num_workers = int(os.getenv("NUM_WORKERS", "1"))  # Number of parallel queue workers
 
 # Redis queue
 redis_queue: Optional[RedisQueue] = None
@@ -47,6 +49,8 @@ metrics = {
     "failed_requests": 0,
     "cancelled_requests": 0,
     "retry_count": 0,
+    "active_workers": 0,
+    "peak_concurrent_requests": 0,
     "start_time": datetime.utcnow().isoformat(),
 }
 
@@ -107,59 +111,62 @@ async def switch_model(target_model: str) -> None:
 
     model_config = config.get_model(target_model)
 
-    # Check if target model container is already running
-    try:
-        target_container = docker_client.containers.get(model_config.container_name)
-        if target_container.status == 'running':
-            logger.info(f"Model {target_model} already running")
-            current_model = target_model
-            return
-    except docker.errors.NotFound:
-        pass
-
-    # Stop ALL model containers that might be running on port 8080
-    # Don't trust in-memory state - check actual Docker state
-    for model_name in config.list_models():
-        if model_name == target_model:
-            continue
-        model_cfg = config.get_model(model_name)
+    # Acquire lock for Docker operations and model state changes
+    async with model_switch_lock:
+        # Check if target model container is already running
+        # This check is now inside the lock to prevent TOCTOU race conditions
         try:
-            container = docker_client.containers.get(model_cfg.container_name)
-            if container.status == 'running':
-                logger.info(f"Stopping running model: {model_name}")
-                container.stop(timeout=10)
-                logger.info(f"Stopped container: {model_cfg.container_name}")
+            target_container = docker_client.containers.get(model_config.container_name)
+            if target_container.status == 'running':
+                logger.info(f"Model {target_model} already running")
+                current_model = target_model
+                return
         except docker.errors.NotFound:
             pass
+
+        # Stop ALL model containers that might be running on port 8080
+        # Don't trust in-memory state - check actual Docker state
+        for model_name in config.list_models():
+            if model_name == target_model:
+                continue
+            model_cfg = config.get_model(model_name)
+            try:
+                container = docker_client.containers.get(model_cfg.container_name)
+                if container.status == 'running':
+                    logger.info(f"Stopping running model: {model_name}")
+                    container.stop(timeout=10)
+                    logger.info(f"Stopped container: {model_cfg.container_name}")
+            except docker.errors.NotFound:
+                pass
+            except Exception as e:
+                logger.error(f"Error checking/stopping container {model_cfg.container_name}: {e}")
+
+        # Start target model
+        logger.info(f"Starting model: {target_model}")
+        try:
+            container = docker_client.containers.get(model_config.container_name)
+            container.start()
+            logger.info(f"Started container: {model_config.container_name}")
+        except docker.errors.NotFound:
+            raise HTTPException(
+                status_code=500,
+                detail=f"Container not found: {model_config.container_name}. Please create it first."
+            )
         except Exception as e:
-            logger.error(f"Error checking/stopping container {model_cfg.container_name}: {e}")
+            raise HTTPException(status_code=500, detail=f"Error starting container: {e}")
 
-    # Start target model
-    logger.info(f"Starting model: {target_model}")
-    try:
-        container = docker_client.containers.get(model_config.container_name)
-        container.start()
-        logger.info(f"Started container: {model_config.container_name}")
-    except docker.errors.NotFound:
-        raise HTTPException(
-            status_code=500,
-            detail=f"Container not found: {model_config.container_name}. Please create it first."
-        )
-    except Exception as e:
-        raise HTTPException(status_code=500, detail=f"Error starting container: {e}")
+        # Wait for model to be ready
+        logger.info(f"Waiting for model to be ready (timeout: {model_config.startup_timeout}s)...")
+        is_ready = await wait_for_health(model_config.health_url, model_config.startup_timeout)
 
-    # Wait for model to be ready
-    logger.info(f"Waiting for model to be ready (timeout: {model_config.startup_timeout}s)...")
-    is_ready = await wait_for_health(model_config.health_url, model_config.startup_timeout)
+        if not is_ready:
+            raise HTTPException(
+                status_code=504,
+                detail=f"Model {target_model} did not become ready within {model_config.startup_timeout}s"
+            )
 
-    if not is_ready:
-        raise HTTPException(
-            status_code=504,
-            detail=f"Model {target_model} did not become ready within {model_config.startup_timeout}s"
-        )
-
-    current_model = target_model
-    logger.info(f"Model {target_model} is now active")
+        current_model = target_model
+        logger.info(f"Model {target_model} is now active")
 
 
 async def forward_request(backend_url: str, request_data: dict) -> dict:
@@ -200,13 +207,13 @@ async def stream_response(backend_url: str, request_data: dict):
                     yield chunk
 
 
-async def queue_worker():
-    """Process requests from Redis queue one at a time."""
+async def queue_worker(worker_id: int = 0):
+    """Process requests from Redis queue."""
     if not redis_queue:
         logger.error("Redis queue not initialized")
         return
 
-    logger.info("Queue worker started")
+    logger.info(f"Queue worker {worker_id} started")
     consecutive_errors = 0
 
     while True:
@@ -224,56 +231,68 @@ async def queue_worker():
             model = job_dict["model"]
             request_data = job_dict["request_data"]
 
-            logger.info(f"Processing job {job_id} for model {model}")
+            logger.info(f"[Worker {worker_id}] Processing job {job_id} for model {model}")
+
+            # Track active worker
+            async with metrics_lock:
+                metrics["active_workers"] += 1
+                metrics["peak_concurrent_requests"] = max(
+                    metrics["peak_concurrent_requests"],
+                    metrics["active_workers"]
+                )
 
             try:
-                async with processing_lock:
-                    # Check if client cancelled before heavy work
-                    if job_id in pending_futures:
-                        future = pending_futures[job_id]
-                        if future.cancelled():
-                            logger.info(f"Job {job_id} was cancelled by client, skipping")
+                # Check if client cancelled before heavy work
+                if job_id in pending_futures:
+                    future = pending_futures[job_id]
+                    if future.cancelled():
+                        logger.info(f"[Worker {worker_id}] Job {job_id} was cancelled by client, skipping")
+                        async with metrics_lock:
                             metrics["cancelled_requests"] += 1
-                            await redis_queue.acknowledge_job(job_id)
-                            continue
+                        await redis_queue.acknowledge_job(job_id)
+                        continue
 
-                    # Switch to requested model
-                    await switch_model(model)
+                # Switch to requested model (lock acquired inside if needed)
+                await switch_model(model)
 
-                    # Check cancellation again after model switch
-                    if job_id in pending_futures:
-                        future = pending_futures[job_id]
-                        if future.cancelled():
-                            logger.info(f"Job {job_id} cancelled after model switch")
+                # Check cancellation again after model switch
+                if job_id in pending_futures:
+                    future = pending_futures[job_id]
+                    if future.cancelled():
+                        logger.info(f"[Worker {worker_id}] Job {job_id} cancelled after model switch")
+                        async with metrics_lock:
                             metrics["cancelled_requests"] += 1
-                            await redis_queue.acknowledge_job(job_id)
-                            continue
+                        await redis_queue.acknowledge_job(job_id)
+                        continue
 
-                    # Forward request
-                    model_config = config.get_model(model)
-                    result = await forward_request(model_config.backend_url, request_data)
+                # Forward request (no lock - llama-server handles concurrency)
+                model_config = config.get_model(model)
+                result = await forward_request(model_config.backend_url, request_data)
 
-                    # Deliver result if future still pending
-                    if job_id in pending_futures:
-                        future = pending_futures[job_id]
-                        if not future.cancelled() and not future.done():
-                            future.set_result(result)
+                # Deliver result if future still pending
+                if job_id in pending_futures:
+                    future = pending_futures[job_id]
+                    if not future.cancelled() and not future.done():
+                        future.set_result(result)
 
-                    # Acknowledge successful processing
-                    await redis_queue.acknowledge_job(job_id)
+                # Acknowledge successful processing
+                await redis_queue.acknowledge_job(job_id)
+                async with metrics_lock:
                     metrics["successful_requests"] += 1
-                    consecutive_errors = 0
-                    logger.info(f"Job {job_id} completed successfully")
+                consecutive_errors = 0
+                logger.info(f"[Worker {worker_id}] Job {job_id} completed successfully")
 
             except asyncio.CancelledError:
-                logger.info(f"Job {job_id} processing was cancelled")
-                metrics["cancelled_requests"] += 1
+                logger.info(f"[Worker {worker_id}] Job {job_id} processing was cancelled")
+                async with metrics_lock:
+                    metrics["cancelled_requests"] += 1
                 await redis_queue.nack_job(job_id, "processing_cancelled")
                 raise
 
             except Exception as e:
-                logger.error(f"Error processing job {job_id}: {e}")
-                metrics["failed_requests"] += 1
+                logger.error(f"[Worker {worker_id}] Error processing job {job_id}: {e}")
+                async with metrics_lock:
+                    metrics["failed_requests"] += 1
 
                 # Set exception on future if still pending
                 if job_id in pending_futures:
@@ -288,6 +307,10 @@ async def queue_worker():
                 # Clean up future reference
                 if job_id in pending_futures:
                     del pending_futures[job_id]
+
+                # Decrement active workers
+                async with metrics_lock:
+                    metrics["active_workers"] -= 1
 
         except Exception as e:
             logger.error(f"Unexpected error in queue worker: {e}")
@@ -306,18 +329,22 @@ async def lifespan(app: FastAPI):
     # Initialize Redis
     await init_redis()
 
-    # Start queue worker
-    worker_task = asyncio.create_task(queue_worker())
-    logger.info("LLM Queue Proxy started with Redis backend")
+    # Start multiple queue workers
+    worker_tasks = [
+        asyncio.create_task(queue_worker(worker_id=i))
+        for i in range(num_workers)
+    ]
+    logger.info(f"LLM Queue Proxy started with Redis backend and {num_workers} workers")
 
     yield
 
-    # Shutdown
-    worker_task.cancel()
-    try:
-        await worker_task
-    except asyncio.CancelledError:
-        pass
+    # Shutdown all workers
+    for task in worker_tasks:
+        task.cancel()
+
+    # Wait for all workers to finish
+    await asyncio.gather(*worker_tasks, return_exceptions=True)
+    logger.info("All workers shut down")
 
     if redis_queue:
         await redis_queue.disconnect()
@@ -347,9 +374,9 @@ async def list_models():
 
 
 @app.post("/v1/chat/completions")
-async def chat_completions(request: ChatCompletionRequest):
+async def chat_completions(chat_request: ChatCompletionRequest, request: Request):
     """Handle chat completion with queueing and model swapping."""
-    model = request.model
+    model = chat_request.model
 
     # Validate model
     if model not in config.list_models():
@@ -364,23 +391,23 @@ async def chat_completions(request: ChatCompletionRequest):
             detail="Queue service not available"
         )
 
-    # Handle streaming requests directly (with lock)
-    if request.stream:
+    # Handle streaming requests directly
+    if chat_request.stream:
         logger.info(f"Streaming request for model: {model}")
 
-        async with processing_lock:
-            # Switch to requested model
-            await switch_model(model)
+        # Switch to requested model (lock acquired inside if needed)
+        await switch_model(model)
 
-            # Get model config and stream response
-            model_config = config.get_model(model)
-            return StreamingResponse(
-                stream_response(model_config.backend_url, request.model_dump()),
-                media_type="text/event-stream"
-            )
+        # Get model config and stream response
+        model_config = config.get_model(model)
+        return StreamingResponse(
+            stream_response(model_config.backend_url, chat_request.model_dump()),
+            media_type="text/event-stream"
+        )
 
     # Non-streaming: use Redis queue
-    metrics["total_requests"] += 1
+    async with metrics_lock:
+        metrics["total_requests"] += 1
 
     # Generate unique job ID
     job_id = str(uuid.uuid4())
@@ -394,28 +421,54 @@ async def chat_completions(request: ChatCompletionRequest):
         await redis_queue.enqueue(
             job_id=job_id,
             model=model,
-            request_data=request.model_dump()
+            request_data=chat_request.model_dump()
         )
         logger.info(f"Enqueued job {job_id} for model {model}")
 
-        # Wait for result with timeout
-        result = await asyncio.wait_for(
-            request_future,
-            timeout=config.request_timeout + 300  # Extra buffer for model switching
-        )
-        return result
+        # Create disconnection checker task
+        async def check_disconnection():
+            """Periodically check if client disconnected."""
+            while not request_future.done():
+                if await request.is_disconnected():
+                    logger.info(f"Client disconnected for job {job_id}")
+                    if not request_future.done():
+                        request_future.cancel()
+                    break
+                await asyncio.sleep(0.5)
+
+        disconnection_task = asyncio.create_task(check_disconnection())
+
+        try:
+            # Wait for result with timeout
+            result = await asyncio.wait_for(
+                request_future,
+                timeout=config.request_timeout + 300  # Extra buffer for model switching
+            )
+            return result
+        finally:
+            # Cancel disconnection checker
+            disconnection_task.cancel()
+            try:
+                await disconnection_task
+            except asyncio.CancelledError:
+                pass
 
     except asyncio.TimeoutError:
         logger.warning(f"Job {job_id} timed out")
-        metrics["failed_requests"] += 1
+        async with metrics_lock:
+            metrics["failed_requests"] += 1
+        # Clean up future (won't be processed by worker)
+        pending_futures.pop(job_id, None)
         raise HTTPException(
             status_code=504,
             detail=f"Request timed out after {config.request_timeout + 300}s"
         )
 
     except asyncio.CancelledError:
-        logger.info(f"Job {job_id} was cancelled")
-        metrics["cancelled_requests"] += 1
+        logger.info(f"Job {job_id} was cancelled by client")
+        async with metrics_lock:
+            metrics["cancelled_requests"] += 1
+        # DON'T delete future here - let worker detect cancellation and clean up
         raise HTTPException(
             status_code=499,
             detail="Request cancelled"
@@ -426,16 +479,14 @@ async def chat_completions(request: ChatCompletionRequest):
 
     except Exception as e:
         logger.error(f"Error processing job {job_id}: {e}")
-        metrics["failed_requests"] += 1
+        async with metrics_lock:
+            metrics["failed_requests"] += 1
+        # Clean up future if error happened before worker processed it
+        pending_futures.pop(job_id, None)
         raise HTTPException(
             status_code=500,
             detail=f"Error processing request: {str(e)}"
         )
-
-    finally:
-        # Clean up future
-        if job_id in pending_futures:
-            del pending_futures[job_id]
 
 
 @app.get("/health", response_model=HealthResponse)
@@ -463,25 +514,29 @@ async def metrics_endpoint():
     queue_stats = await redis_queue.get_queue_stats()
     uptime = (datetime.utcnow() - datetime.fromisoformat(metrics["start_time"])).total_seconds()
 
-    return {
-        "uptime_seconds": uptime,
-        "total_requests": metrics["total_requests"],
-        "successful_requests": metrics["successful_requests"],
-        "failed_requests": metrics["failed_requests"],
-        "cancelled_requests": metrics["cancelled_requests"],
-        "success_rate": (
-            metrics["successful_requests"] / metrics["total_requests"]
-            if metrics["total_requests"] > 0 else 0
-        ),
-        "queue_stats": {
-            "pending_jobs": queue_stats.get("pending", 0),
-            "processing_jobs": queue_stats.get("processing", 0),
-            "dead_letter_queue": queue_stats.get("dead_letter_queue", 0),
-            "total_jobs": queue_stats.get("total", 0),
-        },
-        "current_model": current_model,
-        "pending_futures": len(pending_futures),
-    }
+    async with metrics_lock:
+        return {
+            "uptime_seconds": uptime,
+            "total_requests": metrics["total_requests"],
+            "successful_requests": metrics["successful_requests"],
+            "failed_requests": metrics["failed_requests"],
+            "cancelled_requests": metrics["cancelled_requests"],
+            "active_workers": metrics["active_workers"],
+            "peak_concurrent_requests": metrics["peak_concurrent_requests"],
+            "num_workers": num_workers,
+            "success_rate": (
+                metrics["successful_requests"] / metrics["total_requests"]
+                if metrics["total_requests"] > 0 else 0
+            ),
+            "queue_stats": {
+                "pending_jobs": queue_stats.get("pending", 0),
+                "processing_jobs": queue_stats.get("processing", 0),
+                "dead_letter_queue": queue_stats.get("dead_letter_queue", 0),
+                "total_jobs": queue_stats.get("total", 0),
+            },
+            "current_model": current_model,
+            "pending_futures": len(pending_futures),
+        }
 
 
 @app.get("/queue/dlq")
