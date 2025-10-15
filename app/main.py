@@ -266,8 +266,29 @@ async def queue_worker(worker_id: int = 0):
                         continue
 
                 # Forward request (no lock - llama-server handles concurrency)
+                # Wrap in task so we can cancel it if client disconnects
                 model_config = config.get_model(model)
-                result = await forward_request(model_config.backend_url, request_data)
+                forward_task = asyncio.create_task(
+                    forward_request(model_config.backend_url, request_data)
+                )
+
+                # Poll for cancellation while waiting for backend
+                while not forward_task.done():
+                    # Check if client cancelled
+                    if job_id in pending_futures and pending_futures[job_id].cancelled():
+                        logger.info(f"[Worker {worker_id}] Cancelling backend request for job {job_id}")
+                        forward_task.cancel()
+                        try:
+                            await forward_task
+                        except asyncio.CancelledError:
+                            pass
+                        raise asyncio.CancelledError()
+
+                    # Wait a bit before checking again
+                    await asyncio.sleep(0.5)
+
+                # Get result from completed task
+                result = await forward_task
 
                 # Deliver result if future still pending
                 if job_id in pending_futures:
