@@ -1,18 +1,48 @@
 services:
+  redis:
+    image: redis:7-alpine
+    container_name: llm-queue-redis
+    ports:
+      - "6379:6379"
+    volumes:
+      - redis_data:/data
+    restart: unless-stopped
+    command: redis-server --appendonly yes --requirepass redis_password
+    healthcheck:
+      test: ["CMD", "redis-cli", "-a", "redis_password", "ping"]
+      interval: 5s
+      timeout: 3s
+      retries: 5
+    logging:
+      driver: json-file
+      options:
+        max-size: "10m"
+        max-file: "3"
+
   llm-proxy:
     build:
       context: .
       network: host
     container_name: llm-queue-proxy
     network_mode: host
+    depends_on:
+      redis:
+        condition: service_healthy
     volumes:
       - /var/run/docker.sock:/var/run/docker.sock:ro
       - ./config.yml:/app/config.yml:ro
     restart: unless-stopped
     environment:
       - PYTHONUNBUFFERED=1
+      - REDIS_HOST=localhost
+      - REDIS_PORT=6379
+      - REDIS_PASSWORD=redis_password
+      - REDIS_DB=0
     logging:
       driver: json-file
       options:
         max-size: "10m"
         max-file: "3"
+
+volumes:
+  redis_data:

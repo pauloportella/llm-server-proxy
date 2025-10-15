@@ -4,6 +4,12 @@
 queue_size: 50
 request_timeout: 600  # 10 minutes
 
+# Redis settings (from environment variables if set)
+# REDIS_HOST: localhost (default)
+# REDIS_PORT: 6379 (default)
+# REDIS_PASSWORD: redis_password (default)
+# REDIS_DB: 0 (default)
+
 # Model definitions
 # NOTE: Containers must be created beforehand using the docker run commands
 # from CACHYOS_SETUP.md. This proxy only starts/stops existing containers.

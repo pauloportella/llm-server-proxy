@@ -42,10 +42,13 @@ This file provides guidance to Claude Code when working with this repository.
 - Matches docker-compose patterns
 - State persistence
 
-**Why in-memory queue instead of Redis?**
-- Homelab deployment (single instance)
-- Simplicity over distributed systems complexity
-- Request loss on restart is acceptable
+**Why Redis queue (v2.0 upgrade)?**
+- **Reliability:** Atomic dequeue-to-processing transfers prevent lost requests
+- **Job Acknowledgement:** Failed jobs automatically retry (up to 3x) then move to DLQ
+- **Persistence:** Queue survives proxy restarts
+- **Observability:** Inspect queue state externally via redis-cli
+- **Stalled Job Recovery:** Automatic recovery if worker crashes mid-processing
+- **Client Cancellation:** Proper detection of client disconnects with no queue corruption
 
 **Why health polling?**
 - llama-server takes 90-180s to load models
@@ -84,6 +87,26 @@ This file provides guidance to Claude Code when working with this repository.
 
 3. Restart proxy: `docker-compose restart`
 
+### Migration from v1 (in-memory) to v2 (Redis)
+
+**What Changed:**
+- Queue now persists in Redis (survives container restarts)
+- Failed jobs automatically retry up to 3 times
+- Dead-letter queue stores permanently failed jobs
+- Client cancellations no longer corrupt queue state
+- New monitoring endpoints: `/metrics`, `/queue/dlq`
+
+**Upgrade Steps:**
+1. Pull latest code (includes new `app/redis_queue.py`)
+2. Update dependencies: `pip install -r requirements.txt`
+3. Run: `docker-compose up -d --build` (starts Redis + proxy)
+4. Verify: `curl http://localhost:8888/health`
+
+**Breaking Changes:**
+- ❌ No more `asyncio.Queue` - all queue operations go through Redis
+- ❌ Environment vars required: `REDIS_HOST`, `REDIS_PORT`, `REDIS_PASSWORD`
+- ✅ Backward compatible: Same OpenAI API endpoints
+
 ### Testing Changes
 
 ```bash
@@ -92,6 +115,9 @@ docker-compose up -d --build
 
 # View logs
 docker logs -f llm-queue-proxy
+
+# Run integration tests (recommended - tests queue integrity)
+uv run python3 tests/test_integration.py
 
 # Test health
 curl http://localhost:8888/health
@@ -106,13 +132,36 @@ curl -X POST http://localhost:8888/v1/chat/completions \
     "model": "gpt-oss-120b",
     "messages": [{"role": "user", "content": "test"}]
   }'
+
+# View metrics
+curl http://localhost:8888/metrics | jq
 ```
 
-### Debugging
+### Monitoring & Debugging
 
 **Check proxy logs:**
 ```bash
 docker logs -f llm-queue-proxy
+```
+
+**View queue metrics:**
+```bash
+curl http://localhost:8888/metrics | jq
+```
+
+**Inspect queue status:**
+```bash
+curl http://localhost:8888/health | jq
+```
+
+**Check dead-letter queue:**
+```bash
+curl http://localhost:8888/queue/dlq | jq
+```
+
+**Clear dead-letter queue (admin):**
+```bash
+curl -X DELETE http://localhost:8888/queue/dlq | jq
 ```
 
 **Check backend health manually:**
@@ -125,35 +174,54 @@ curl http://localhost:8080/health
 docker exec llm-queue-proxy ls -la /var/run/docker.sock
 ```
 
-**Check queue status:**
+**Direct Redis inspection:**
 ```bash
-curl http://localhost:8888/health | jq
+docker exec llm-queue-redis redis-cli -a redis_password
+# Once in redis-cli:
+> ZRANGE llm_requests 0 -1 WITHSCORES  # View pending jobs (sorted set)
+> SMEMBERS llm_processing_ids          # View processing job IDs (set)
+> HGETALL llm_jobs                     # View job metadata (hash)
+> LRANGE llm_dlq 0 -1                  # View dead-letter jobs (list)
 ```
 
 ## Dependencies
 
-- **FastAPI 0.115.0** - Modern async web framework
-- **uvicorn 0.32.0** - ASGI server
-- **aiohttp 3.11.0** - Async HTTP client for backend forwarding
-- **pyyaml 6.0.2** - YAML config parsing
+- **FastAPI 0.119.0** - Modern async web framework
+- **uvicorn 0.37.0** - ASGI server
+- **aiohttp 3.13.0** - Async HTTP client for backend forwarding
+- **pyyaml 6.0.3** - YAML config parsing
 - **docker 7.1.0** - Docker SDK for container management
-- **pydantic 2.9.2** - Data validation and OpenAI schema
+- **pydantic 2.12.2** - Data validation and OpenAI schema
+- **redis[asyncio] 6.4.0** - Redis async client for queue management
 
 ## Configuration
 
-### Environment Variables
+### Environment Variables (LLM Proxy)
 
 - `PYTHONUNBUFFERED=1` - Enable real-time log output
+- `REDIS_HOST` - Redis hostname (default: localhost)
+- `REDIS_PORT` - Redis port (default: 6379)
+- `REDIS_PASSWORD` - Redis password (default: redis_password)
+- `REDIS_DB` - Redis database number (default: 0)
 
 ### Docker Compose Settings
 
+**LLM Proxy:**
 - `network_mode: host` - Required for accessing localhost backends
 - `/var/run/docker.sock` mount - Required for Docker API access
 - `restart: unless-stopped` - Auto-restart on crashes
+- `depends_on: redis` - Ensures Redis starts first with health check
+
+**Redis:**
+- `image: redis:7-alpine` - Lightweight Redis server
+- `--appendonly yes` - Persist queue data to disk
+- `--requirepass redis_password` - Password protection
+- Health check ensures proxy only starts when Redis is ready
 
 ### Port Usage
 
 - **8888** - Proxy server (this service)
+- **6379** - Redis queue (internal, localhost only)
 - **8080** - Backend LLM servers (gpt-oss, qwen3)
 - **8081** - Backend LLM servers (dolphin)
 
@@ -196,16 +264,33 @@ When adding new OpenAI endpoints (e.g., /v1/embeddings):
 
 ## Production Considerations
 
-**Current Design:** Optimized for single-user homelab
+**Current Design:** Production-ready with Redis queue (v2.0)
+
+**Key Improvements (v2.0):**
+- Redis queue for reliable job processing
+- Automatic job acknowledgement and retry (up to 3x)
+- Dead-letter queue for failed jobs
+- Client cancellation detection
+- Metrics endpoint for monitoring
+- Stalled job recovery (auto-retry if worker crashes)
+- JSON-serialized job payloads in Redis
+
+**Recent Fixes (v2.0.1):**
+- ✅ Fixed job acknowledgement bug (hash-based tracking instead of JSON string matching)
+- ✅ Removed incorrect `EXPIRE` call on entire hash (TTL now via timestamp-based cleanup)
+- ✅ Fixed orphaned job cleanup in `cleanup_stalled_jobs()`
+- ✅ Improved error handling in `nack_job()` with explicit Redis connection errors
+- ✅ Added constants for magic numbers (`JOB_PROCESSING_TIMEOUT_SECONDS = 300`, `DEFAULT_MAX_RETRIES = 3`)
+- ✅ Comprehensive integration tests in `tests/test_integration.py`
 
 **Future Enhancements:**
 - Authentication/API keys
 - Rate limiting per user
 - Multi-GPU support (load multiple models)
 - Model preloading (keep N models warm)
-- Streaming responses (SSE)
-- Request priority queue
-- Metrics/monitoring (Prometheus)
+- Prometheus metrics export
+- Request priority levels (currently uniform)
+- Multi-worker scaling (requires queue index management)
 
 ## Notes
 
@@ -213,4 +298,4 @@ When adding new OpenAI endpoints (e.g., /v1/embeddings):
 - Designed for **stability over latency**
 - Model switching is **intentionally slow** (safe)
 - Queue rejections (503) are **expected** under load
-- Request loss on restart is **acceptable** (in-memory queue)
+- Request persistence: Redis AOF ensures minimal data loss on crashes (v2.0+)
