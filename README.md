@@ -50,19 +50,110 @@ docker create --name qwen-server -p 8080:8080 \
   -v /mnt/ai_models:/models \
   kyuz0/amd-strix-halo-toolboxes:vulkan-radv \
   llama-server -m /models/huggingface/hub/models--unsloth--Qwen3-Coder-30B-A3B-Instruct-GGUF/snapshots/7ce945e58ed3f09f9cf9c33a2122d86ac979b457/Qwen3-Coder-30B-A3B-Instruct-Q4_K_M.gguf \
-  --alias qwen3-coder-30b -ngl 999 -c 65536 \
+  --alias qwen3-coder-30b -ngl 999 -c 262144 \
   --cache-type-k q8_0 --cache-type-v q8_0 \
   --host 0.0.0.0 --port 8080 --jinja
 
-# Dolphin-Mistral-24B
-docker create --name dolphin-server -p 8081:8081 \
+# Dolphin-Mistral-24B (Q6, port 8080)
+docker create --name dolphin-server -p 8080:8080 \
   --device /dev/dri --device /dev/kfd \
   -v /mnt/ai_models:/models \
   kyuz0/amd-strix-halo-toolboxes:vulkan-radv \
   llama-server -m /models/huggingface/dolphin-mistral-24b-venice/cognitivecomputations_Dolphin-Mistral-24B-Venice-Edition-Q6_K_L.gguf \
-  --alias dolphin-mistral-24b -ngl 999 -c 32768 \
-  --cache-type-k q4_0 --cache-type-v q4_0 \
-  --host 0.0.0.0 --port 8081 --jinja
+  --alias dolphin-mistral-24b -ngl 999 -c 32768 -ub 32 -b 32 \
+  --host 0.0.0.0 --port 8080 --jinja
+
+# Dolphin-Mistral-24B-Fast (Q4, port 8080)
+docker create --name dolphin-fast-server -p 8080:8080 \
+  --device /dev/dri --device /dev/kfd \
+  -v /mnt/ai_models:/models \
+  kyuz0/amd-strix-halo-toolboxes:vulkan-radv \
+  llama-server -m /models/huggingface/dolphin-mistral-24b-venice/cognitivecomputations_Dolphin-Mistral-24B-Venice-Edition-Q4_K_L.gguf \
+  --alias dolphin-mistral-24b-fast -ngl 999 -c 32768 -ub 32 -b 32 \
+  --host 0.0.0.0 --port 8080 --jinja
+
+# LFM2-8B-A1B (Q8_0, port 8080)
+docker create --name lfm2-server -p 8080:8080 \
+  --device /dev/dri --device /dev/kfd \
+  -v /mnt/ai_models:/models \
+  kyuz0/amd-strix-halo-toolboxes:vulkan-radv \
+  llama-server -m /models/huggingface/lfm2-8b-a1b/LFM2-8B-A1B-Q8_0.gguf \
+  --alias lfm2-8b -ngl 999 -c 32768 -b 4096 -ub 1024 \
+  --cache-type-k f16 --cache-type-v f16 \
+  --mlock --host 0.0.0.0 --port 8080 --jinja
+
+# GPT-OSS-20B (Q8_0, port 8080)
+docker create --name gpt-oss-20b-server -p 8080:8080 \
+  --device /dev/dri --device /dev/kfd \
+  -v /mnt/ai_models:/models \
+  kyuz0/amd-strix-halo-toolboxes:vulkan-radv \
+  llama-server -m /models/huggingface/gpt-oss-20b/gpt-oss-20b-Q8_0.gguf \
+  --alias gpt-oss-20b -ngl 999 -c 131072 -b 2048 -ub 2048 \
+  --cache-type-k f16 --cache-type-v f16 \
+  --flash-attn on \
+  --host 0.0.0.0 --port 8080 --jinja
+
+# Qwen3-30B-A3B-Thinking-2507 (Q8_0, port 8080)
+docker create --name qwen-thinking-server -p 8080:8080 \
+  --device /dev/dri --device /dev/kfd \
+  -v /mnt/ai_models:/models \
+  kyuz0/amd-strix-halo-toolboxes:vulkan-radv \
+  llama-server -m /models/huggingface/qwen3-30b-thinking/Qwen3-30B-A3B-Thinking-2507-Q8_0.gguf \
+  --alias qwen3-30b-thinking -ngl 999 -c 131072 -b 2048 -ub 2048 \
+  --reasoning-format deepseek \
+  --host 0.0.0.0 --port 8080 --jinja
+
+# AI21-Jamba-Reasoning-3B (F16, port 8080)
+docker create --name jamba-reasoning-server -p 8080:8080 \
+  --device /dev/dri --device /dev/kfd \
+  -v /mnt/ai_models:/models \
+  kyuz0/amd-strix-halo-toolboxes:vulkan-radv \
+  llama-server -m /models/huggingface/jamba-reasoning-3b/jamba-reasoning-3b-F16.gguf \
+  --alias jamba-reasoning-3b -ngl 999 -c 128000 \
+  --flash-attn on \
+  --host 0.0.0.0 --port 8080 --jinja
+
+# Qwen3-30B-A3B-Instruct-2507 (Q8_0, port 8080)
+docker create --name qwen-instruct-server -p 8080:8080 \
+  --device /dev/dri --device /dev/kfd \
+  -v /mnt/ai_models:/models \
+  kyuz0/amd-strix-halo-toolboxes:vulkan-radv \
+  llama-server -m /models/huggingface/qwen3-30b-instruct/Qwen3-30B-A3B-Instruct-2507-Q8_0.gguf \
+  --alias qwen3-30b-instruct -ngl 999 -c 131072 -b 2048 -ub 2048 \
+  --host 0.0.0.0 --port 8080 --jinja
+
+# GPT-OSS-20B-NEOPlus-Uncensored (Q8_0 Imatrix, port 8080)
+docker create --name gpt-oss-20b-neoplus-server -p 8080:8080 \
+  --device /dev/dri --device /dev/kfd \
+  -v /mnt/ai_models:/models \
+  kyuz0/amd-strix-halo-toolboxes:vulkan-radv \
+  llama-server -m /models/huggingface/gpt-oss-20b-neoplus/OpenAI-20B-NEOPlus-Uncensored-Q8_0.gguf \
+  --alias gpt-oss-20b-neoplus -ngl 999 -c 131072 -b 2048 -ub 2048 \
+  --cache-type-k f16 --cache-type-v f16 \
+  --flash-attn on \
+  --host 0.0.0.0 --port 8080 --jinja
+
+# GPT-OSS-20B-NEO-CODE-DI-Uncensored (Q8_0 DI-Matrix, port 8080)
+docker create --name gpt-oss-20b-code-di-server -p 8080:8080 \
+  --device /dev/dri --device /dev/kfd \
+  -v /mnt/ai_models:/models \
+  kyuz0/amd-strix-halo-toolboxes:vulkan-radv \
+  llama-server -m /models/huggingface/gpt-oss-20b-code-di/OpenAI-20B-NEO-CODE-DI-Uncensored-Q8_0.gguf \
+  --alias gpt-oss-20b-code-di -ngl 999 -c 131072 -b 2048 -ub 2048 \
+  --cache-type-k f16 --cache-type-v f16 \
+  --flash-attn on \
+  --host 0.0.0.0 --port 8080 --jinja
+
+# Huihui-Qwen3-VL-30B (Q8_0, Vision-Language, port 8080) - EXPERIMENTAL
+# ⚠️ WARNING: Vision support NOT YET IMPLEMENTED in proxy
+docker create --name huihui-qwen3-vl-server -p 8080:8080 \
+  --device /dev/dri --device /dev/kfd \
+  -v /mnt/ai_models:/models \
+  kyuz0/amd-strix-halo-toolboxes:vulkan-radv \
+  llama-server -m /models/huggingface/huihui-qwen3-vl-30b/GGUF/ggml-model-q8_0.gguf \
+  --mmproj /models/huggingface/huihui-qwen3-vl-30b/GGUF/mmproj-ggml-model-f16.gguf \
+  --alias huihui-qwen3-vl-30b -ngl 999 -c 4096 \
+  --host 0.0.0.0 --port 8080 --jinja
 ```
 
 **2. Firewall Configuration**
@@ -136,7 +227,72 @@ Response:
       "created": 1697000000,
       "owned_by": "local"
     },
-    ...
+    {
+      "id": "gpt-oss-20b",
+      "object": "model",
+      "created": 1697000000,
+      "owned_by": "local"
+    },
+    {
+      "id": "qwen3-coder-30b",
+      "object": "model",
+      "created": 1697000000,
+      "owned_by": "local"
+    },
+    {
+      "id": "dolphin-mistral-24b",
+      "object": "model",
+      "created": 1697000000,
+      "owned_by": "local"
+    },
+    {
+      "id": "dolphin-mistral-24b-fast",
+      "object": "model",
+      "created": 1697000000,
+      "owned_by": "local"
+    },
+    {
+      "id": "lfm2-8b",
+      "object": "model",
+      "created": 1697000000,
+      "owned_by": "local"
+    },
+    {
+      "id": "qwen3-30b-thinking",
+      "object": "model",
+      "created": 1697000000,
+      "owned_by": "local"
+    },
+    {
+      "id": "jamba-reasoning-3b",
+      "object": "model",
+      "created": 1697000000,
+      "owned_by": "local"
+    },
+    {
+      "id": "qwen3-30b-instruct",
+      "object": "model",
+      "created": 1697000000,
+      "owned_by": "local"
+    },
+    {
+      "id": "gpt-oss-20b-neoplus",
+      "object": "model",
+      "created": 1697000000,
+      "owned_by": "local"
+    },
+    {
+      "id": "gpt-oss-20b-code-di",
+      "object": "model",
+      "created": 1697000000,
+      "owned_by": "local"
+    },
+    {
+      "id": "huihui-qwen3-vl-30b",
+      "object": "model",
+      "created": 1697000000,
+      "owned_by": "local"
+    }
   ]
 }
 ```
@@ -199,7 +355,9 @@ Response:
 
 Use the OpenAI node with:
 - **Base URL:** `http://100.78.198.217:8888/v1`
-- **Model:** Choose from dropdown (gpt-oss-120b, qwen3-coder-30b, dolphin-mistral-24b)
+- **Model:** Choose from dropdown (gpt-oss-120b, gpt-oss-20b, gpt-oss-20b-neoplus, gpt-oss-20b-code-di, qwen3-coder-30b, qwen3-30b-thinking, qwen3-30b-instruct, dolphin-mistral-24b, dolphin-mistral-24b-fast, lfm2-8b, jamba-reasoning-3b, huihui-qwen3-vl-30b*)
+
+*Note: huihui-qwen3-vl-30b is a vision model - image support not yet implemented in proxy
 
 ### Python
 
@@ -253,9 +411,18 @@ print(response.choices[0].message.content)
 ## Performance Notes
 
 **Startup Times (from CACHYOS_SETUP.md):**
-- GPT-OSS-120B (63GB): ~180s
-- Qwen3-Coder-30B (19GB): ~90s
-- Dolphin-Mistral-24B (19.67GB): ~90s
+- GPT-OSS-120B (Q4_K_M, 63GB): ~180s
+- Qwen3-Coder-30B (Q4_K_M, 19GB, 262K context): ~120s
+- Dolphin-Mistral-24B (Q6, 19.67GB): ~90s
+- Dolphin-Mistral-24B-Fast (Q4, 14GB): ~60s
+- Huihui-Qwen3-VL-30B (Q8_0, 33.6GB, vision model): ~30-45s
+- Qwen3-30B-A3B-Thinking (Q8_0, 32.5GB, reasoning): ~30-45s
+- Qwen3-30B-A3B-Instruct (Q8_0, 32.5GB, general): ~30-45s
+- GPT-OSS-20B-NEOPlus-Uncensored (Q8_0, 22.1GB, uncensored): ~20-30s
+- GPT-OSS-20B-NEO-CODE-DI-Uncensored (Q8_0, 22.1GB, code-focused): ~20-30s
+- GPT-OSS-20B (Q8_0, 12.1GB, 128K context): ~20-30s
+- AI21-Jamba-Reasoning-3B (F16, 6.4GB): ~5-10s
+- LFM2-8B-A1B (Q8_0, 8.87GB): ~4-6s
 
 **Recommendations:**
 - Use same model for consecutive requests to avoid swapping

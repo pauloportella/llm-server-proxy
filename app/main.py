@@ -57,24 +57,34 @@ async def switch_model(target_model: str) -> None:
     """Switch to target model by stopping current and starting new."""
     global current_model
 
-    if current_model == target_model:
-        logger.info(f"Model {target_model} already loaded")
-        return
-
     model_config = config.get_model(target_model)
 
-    # Stop current model if any
-    if current_model:
-        current_config = config.get_model(current_model)
-        logger.info(f"Stopping model: {current_model}")
+    # Check if target model container is already running
+    try:
+        target_container = docker_client.containers.get(model_config.container_name)
+        if target_container.status == 'running':
+            logger.info(f"Model {target_model} already running")
+            current_model = target_model
+            return
+    except docker.errors.NotFound:
+        pass
+
+    # Stop ALL model containers that might be running on port 8080
+    # Don't trust in-memory state - check actual Docker state
+    for model_name in config.list_models():
+        if model_name == target_model:
+            continue
+        model_cfg = config.get_model(model_name)
         try:
-            container = docker_client.containers.get(current_config.container_name)
-            container.stop(timeout=10)
-            logger.info(f"Stopped container: {current_config.container_name}")
+            container = docker_client.containers.get(model_cfg.container_name)
+            if container.status == 'running':
+                logger.info(f"Stopping running model: {model_name}")
+                container.stop(timeout=10)
+                logger.info(f"Stopped container: {model_cfg.container_name}")
         except docker.errors.NotFound:
-            logger.warning(f"Container not found: {current_config.container_name}")
+            pass
         except Exception as e:
-            logger.error(f"Error stopping container: {e}")
+            logger.error(f"Error checking/stopping container {model_cfg.container_name}: {e}")
 
     # Start target model
     logger.info(f"Starting model: {target_model}")

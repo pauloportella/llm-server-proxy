@@ -19,10 +19,64 @@ models:
     container_name: qwen-server
     backend_url: http://localhost:8080/v1
     health_url: http://localhost:8080/health
-    startup_timeout: 90  # ~1.5 minutes for 30B model
+    startup_timeout: 120  # ~2 minutes for 30B model with 262K context
 
   dolphin-mistral-24b:
     container_name: dolphin-server
-    backend_url: http://localhost:8081/v1
-    health_url: http://localhost:8081/health
+    backend_url: http://localhost:8080/v1
+    health_url: http://localhost:8080/health
     startup_timeout: 90  # ~1.5 minutes for 24B model
+
+  dolphin-mistral-24b-fast:
+    container_name: dolphin-fast-server
+    backend_url: http://localhost:8080/v1
+    health_url: http://localhost:8080/health
+    startup_timeout: 60  # ~1 minute for Q4 24B model
+
+  lfm2-8b:
+    container_name: lfm2-server
+    backend_url: http://localhost:8080/v1
+    health_url: http://localhost:8080/health
+    startup_timeout: 60  # 1 minute (actual ~4-6 seconds, conservative timeout)
+
+  gpt-oss-20b:
+    container_name: gpt-oss-20b-server
+    backend_url: http://localhost:8080/v1
+    health_url: http://localhost:8080/health
+    startup_timeout: 60  # 1 minute (actual ~20-30 seconds)
+
+  qwen3-30b-thinking:
+    container_name: qwen-thinking-server
+    backend_url: http://localhost:8080/v1
+    health_url: http://localhost:8080/health
+    startup_timeout: 60  # 1 minute (actual ~30-45 seconds)
+
+  jamba-reasoning-3b:
+    container_name: jamba-reasoning-server
+    backend_url: http://localhost:8080/v1
+    health_url: http://localhost:8080/health
+    startup_timeout: 60  # 1 minute (actual ~5-10 seconds)
+
+  huihui-qwen3-vl-30b:
+    container_name: huihui-qwen3-vl-server
+    backend_url: http://localhost:8080/v1
+    health_url: http://localhost:8080/health
+    startup_timeout: 60  # 1 minute (actual ~30-45 seconds, vision model)
+
+  qwen3-30b-instruct:
+    container_name: qwen-instruct-server
+    backend_url: http://localhost:8080/v1
+    health_url: http://localhost:8080/health
+    startup_timeout: 60  # 1 minute (actual ~30-45 seconds)
+
+  gpt-oss-20b-neoplus:
+    container_name: gpt-oss-20b-neoplus-server
+    backend_url: http://localhost:8080/v1
+    health_url: http://localhost:8080/health
+    startup_timeout: 60  # 1 minute (actual ~20-30 seconds, uncensored)
+
+  gpt-oss-20b-code-di:
+    container_name: gpt-oss-20b-code-di-server
+    backend_url: http://localhost:8080/v1
+    health_url: http://localhost:8080/health
+    startup_timeout: 60  # 1 minute (actual ~20-30 seconds, code-focused)
