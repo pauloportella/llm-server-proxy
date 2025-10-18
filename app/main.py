@@ -170,8 +170,10 @@ async def switch_model(target_model: str) -> None:
 
 
 async def forward_request(backend_url: str, request_data: dict) -> dict:
-    """Forward request to backend LLM server."""
-    async with aiohttp.ClientSession() as session:
+    """Forward request to backend LLM server with cancellation support."""
+    session = None
+    try:
+        session = aiohttp.ClientSession()
         async with session.post(
             f"{backend_url}/chat/completions",
             json=request_data,
@@ -184,6 +186,15 @@ async def forward_request(backend_url: str, request_data: dict) -> dict:
                     detail=f"Backend error: {error_text}"
                 )
             return await response.json()
+    except asyncio.CancelledError:
+        # Immediately close session on cancellation to abort HTTP request
+        if session and not session.closed:
+            await session.close()
+        raise
+    finally:
+        # Clean up session
+        if session and not session.closed:
+            await session.close()
 
 
 async def stream_response(backend_url: str, request_data: dict):
@@ -265,6 +276,16 @@ async def queue_worker(worker_id: int = 0):
                         await redis_queue.acknowledge_job(job_id)
                         continue
 
+                # Check cancellation one more time before forwarding
+                if job_id in pending_futures:
+                    future = pending_futures[job_id]
+                    if future.cancelled():
+                        logger.info(f"[Worker {worker_id}] Job {job_id} cancelled before forwarding")
+                        async with metrics_lock:
+                            metrics["cancelled_requests"] += 1
+                        await redis_queue.acknowledge_job(job_id)
+                        continue
+
                 # Forward request (no lock - llama-server handles concurrency)
                 # Wrap in task so we can cancel it if client disconnects
                 model_config = config.get_model(model)
@@ -272,20 +293,19 @@ async def queue_worker(worker_id: int = 0):
                     forward_request(model_config.backend_url, request_data)
                 )
 
-                # Poll for cancellation while waiting for backend
+                # Poll for cancellation while waiting for backend (check every 0.1s for faster response)
                 while not forward_task.done():
                     # Check if client cancelled
                     if job_id in pending_futures and pending_futures[job_id].cancelled():
                         logger.info(f"[Worker {worker_id}] Cancelling backend request for job {job_id}")
                         forward_task.cancel()
-                        try:
-                            await forward_task
-                        except asyncio.CancelledError:
-                            pass
-                        raise asyncio.CancelledError()
+                        # Let CancelledError propagate from awaiting the task
+                        await forward_task
+                        # If we reach here without exception, something is wrong
+                        raise RuntimeError("Task cancellation did not raise CancelledError")
 
-                    # Wait a bit before checking again
-                    await asyncio.sleep(0.5)
+                    # Check more frequently (0.1s instead of 0.5s)
+                    await asyncio.sleep(0.1)
 
                 # Get result from completed task
                 result = await forward_task
@@ -307,8 +327,10 @@ async def queue_worker(worker_id: int = 0):
                 logger.info(f"[Worker {worker_id}] Job {job_id} processing was cancelled")
                 async with metrics_lock:
                     metrics["cancelled_requests"] += 1
-                await redis_queue.nack_job(job_id, "processing_cancelled")
-                raise
+                # Acknowledge cancelled job (don't retry - client disconnected intentionally)
+                await redis_queue.acknowledge_job(job_id)
+                # Don't re-raise - job is handled
+                consecutive_errors = 0
 
             except Exception as e:
                 logger.error(f"[Worker {worker_id}] Error processing job {job_id}: {e}")
@@ -399,6 +421,15 @@ async def chat_completions(chat_request: ChatCompletionRequest, request: Request
     """Handle chat completion with queueing and model swapping."""
     model = chat_request.model
 
+    # Extract metadata headers for batch/workflow tracking
+    # Common headers: X-Request-ID, X-Correlation-ID, X-Workflow-ID, User-Agent
+    batch_id = request.headers.get("x-batch-id") or request.headers.get("x-correlation-id") or request.headers.get("x-request-id")
+    user_agent = request.headers.get("user-agent", "unknown")
+    client_ip = request.client.host if request.client else "unknown"
+
+    # Log metadata for debugging (only first time we see these headers)
+    logger.info(f"Request metadata: batch_id={batch_id}, user_agent={user_agent}, client={client_ip}")
+
     # Validate model
     if model not in config.list_models():
         raise HTTPException(
@@ -454,8 +485,10 @@ async def chat_completions(chat_request: ChatCompletionRequest, request: Request
                     logger.info(f"Client disconnected for job {job_id}")
                     if not request_future.done():
                         request_future.cancel()
+                        logger.info(f"Job {job_id} was cancelled by client")
                     break
-                await asyncio.sleep(0.5)
+                # Check more frequently (0.1s) to catch n8n workflow cancellations faster
+                await asyncio.sleep(0.1)
 
         disconnection_task = asyncio.create_task(check_disconnection())
 
@@ -486,7 +519,7 @@ async def chat_completions(chat_request: ChatCompletionRequest, request: Request
         )
 
     except asyncio.CancelledError:
-        logger.info(f"Job {job_id} was cancelled by client")
+        # Already logged by disconnection checker
         async with metrics_lock:
             metrics["cancelled_requests"] += 1
         # DON'T delete future here - let worker detect cancellation and clean up
