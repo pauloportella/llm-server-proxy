@@ -40,6 +40,7 @@ CONTAINERS=(
   "lfm2-1.2b-tool-server"
   "lfm2-1.2b-rag-server"
   "lfm2-1.2b-extract-server"
+  "llama-3.2-3b-server"
 )
 
 for container in "${CONTAINERS[@]}"; do
@@ -247,6 +248,19 @@ docker create --name lfm2-1.2b-extract-server -p 8080:8080 \
   --host 0.0.0.0 --port 8080 --jinja > /dev/null
 echo -e "${GREEN}✓${NC}"
 
+# Llama-3.2-3B-Instruct (ROCm 7 RC)
+echo -n "  Creating llama-3.2-3b-server... "
+docker create --name llama-3.2-3b-server -p 8080:8080 \
+  --device /dev/dri --device /dev/kfd \
+  -v "${MODEL_MOUNT}":/models \
+  "${IMAGE}" \
+  llama-server -m /models/huggingface/llama-3.2-3b-instruct/Llama-3.2-3B-Instruct-Q6_K_L.gguf \
+  --alias llama-3.2-3b -ngl 999 -c 131072 -b 2048 -ub 2048 --no-mmap \
+  --cache-type-k q8_0 --cache-type-v q8_0 \
+  --flash-attn on \
+  --host 0.0.0.0 --port 8080 --jinja > /dev/null
+echo -e "${GREEN}✓${NC}"
+
 CONTAINERS=(
   "gpt-oss-server"
   "qwen-server"
@@ -263,6 +277,7 @@ CONTAINERS=(
   "lfm2-1.2b-tool-server"
   "lfm2-1.2b-rag-server"
   "lfm2-1.2b-extract-server"
+  "llama-3.2-3b-server"
 )
 
 echo ""
@@ -272,7 +287,7 @@ echo -e "${BLUE}========================================${NC}"
 echo ""
 echo "Summary:"
 echo "  • Backend: ROCm 7 RC (${IMAGE})"
-echo "  • Containers created: 15 (all ROCm 7 RC)"
+echo "  • Containers created: 16 (all ROCm 7 RC)"
 echo "  • Model mount: ${MODEL_MOUNT}"
 echo ""
 echo "ROCm 7 RC Benefits:"

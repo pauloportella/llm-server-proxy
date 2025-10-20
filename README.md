@@ -198,6 +198,17 @@ docker create --name lfm2-1.2b-extract-server -p 8080:8080 \
   --flash-attn on --mlock \
   --host 0.0.0.0 --port 8080 --jinja
 
+# Llama-3.2-3B-Instruct (Q6_K_L, ROCm 7 RC - 128K context, edge-optimized)
+docker create --name llama-3.2-3b-server -p 8080:8080 \
+  --device /dev/dri --device /dev/kfd \
+  -v /mnt/ai_models:/models \
+  kyuz0/amd-strix-halo-toolboxes:rocm-7rc \
+  llama-server -m /models/huggingface/llama-3.2-3b-instruct/Llama-3.2-3B-Instruct-Q6_K_L.gguf \
+  --alias llama-3.2-3b -ngl 999 -c 131072 -b 2048 -ub 2048 --no-mmap \
+  --cache-type-k q8_0 --cache-type-v q8_0 \
+  --flash-attn on \
+  --host 0.0.0.0 --port 8080 --jinja
+
 # TODO: LFM2-VL-1.6B Vision Model (NOT YET CONFIGURED)
 # Downloaded: /mnt/ai_models/huggingface/lfm2-vl-1.6b/LFM2-VL-1.6B-Q8_0.gguf (1.16GB)
 # Backend: kyuz0/amd-strix-halo-toolboxes:vulkan-radv (NOT rocm-7rc - vision needs Vulkan)
@@ -389,6 +400,12 @@ Response:
       "object": "model",
       "created": 1697000000,
       "owned_by": "local"
+    },
+    {
+      "id": "llama-3.2-3b",
+      "object": "model",
+      "created": 1697000000,
+      "owned_by": "local"
     }
   ]
 }
@@ -549,6 +566,7 @@ print(response.choices[0].message.content)
 - Qwen3-Almost-Human-X3-6B (Q5_K_M, 4.0GB): ~20-40s
 - GPT-OSS-20B (Q8_0, 12.1GB, 128K context): ~20-30s
 - AI21-Jamba-Reasoning-3B (F16, 6.4GB): ~5-10s
+- Llama-3.2-3B-Instruct (Q6_K_L, 2.74GB, 128K context): ~5-8s
 - LFM2-8B-A1B (Q8_0, 8.87GB): ~4-6s
 - LFM2-1.2B-Tool (Q8_0, 1.2GB, tool-calling): ~2-5s
 - LFM2-1.2B-RAG (Q8_0, 1.2GB, RAG specialist): ~2-5s
