@@ -9,8 +9,8 @@ uvicorn[standard]==0.38.0
 # HTTP client
 aiohttp==3.13.1
 
-# LLM proxy/routing library
-litellm==1.9.5
+# LLM proxy/routing library (ACTUAL latest stable version from PyPI)
+litellm==1.78.5
 
 # YAML config
 pyyaml==6.0.3
