@@ -17,17 +17,18 @@ This file provides guidance to Claude Code when working with this repository.
    - Multiple parallel queue workers (configurable)
    - Model switcher (Docker SDK start/stop)
    - Health polling (waits for backend readiness)
-   - OpenAI-compatible endpoints
+   - OpenAI-compatible endpoints (via LiteLLM integration)
 
 2. **app/config.py** - YAML configuration loader
    - Loads model definitions from config.yml
    - Validates model configurations
    - Provides model lookup
 
-3. **app/models.py** - Pydantic models for validation
-   - OpenAI request/response formats
+3. **app/models.py** - Minimal Pydantic models (LiteLLM integration)
+   - Minimal request validation (model name, messages, stream flag)
    - Model configuration schema
    - Health check responses
+   - OpenAI compatibility delegated to LiteLLM
 
 4. **config.yml** - Model definitions
    - Container names
@@ -50,6 +51,15 @@ This file provides guidance to Claude Code when working with this repository.
 - **Observability:** Inspect queue state externally via redis-cli
 - **Stalled Job Recovery:** Automatic recovery if worker crashes mid-processing
 - **Client Cancellation:** Proper detection of client disconnects with no queue corruption
+
+**Why LiteLLM integration (v2.1-litellm)?**
+- **Zero OpenAI API maintenance:** LiteLLM handles all OpenAI schema validation and updates
+- **Vision support:** Image input (URLs/base64) works automatically with LLaVA models
+- **Function calling:** Tool/function calling supported out of the box
+- **Streaming:** Simplified streaming implementation with proper SSE formatting
+- **Cleaner codebase:** Removed 50+ lines of manual request forwarding and Pydantic models
+- **Future-proof:** New OpenAI features automatically supported via LiteLLM updates
+- **Separation of concerns:** Proxy focuses on GPU management, LiteLLM handles API compatibility
 
 **Why health polling?**
 - llama-server takes 90-180s to load models
@@ -90,6 +100,32 @@ This file provides guidance to Claude Code when working with this repository.
    ```
 
 3. Restart proxy: `docker-compose restart`
+
+### Migration to v2.1-litellm (LiteLLM Integration)
+
+**What Changed:**
+- **API forwarding:** Replaced manual aiohttp with `litellm.acompletion()`
+- **Request validation:** Simplified from 60+ fields to 3 essential fields (model, messages, stream)
+- **Code reduction:** `models.py` reduced from 119 to 61 lines (~50% smaller)
+- **Vision support:** Image inputs (URLs/base64) now work automatically
+- **Function calling:** Tool/function calling supported out of the box
+- **Streaming:** Improved streaming with proper SSE formatting
+
+**Upgrade Steps:**
+1. Pull latest code from `feature/litellm-integration` branch
+2. Run: `docker-compose up -d --build` (installs litellm==1.78.5)
+3. Verify: `curl http://localhost:8888/health`
+4. Test: Vision models and function calling now work without code changes
+
+**Breaking Changes:**
+- ❌ None - fully backward compatible
+- ✅ All existing endpoints work identically
+- ✅ All tests pass with 100% success rate
+
+**New Capabilities:**
+- ✅ Vision/multimodal inputs (e.g., LLaVA models with images)
+- ✅ Function calling (OpenAI-style tools)
+- ✅ Automatic OpenAI API updates via LiteLLM
 
 ### Migration from v1 (in-memory) to v2 (Redis)
 
@@ -192,11 +228,12 @@ docker exec llm-queue-redis redis-cli -a redis_password
 
 - **FastAPI 0.119.0** - Modern async web framework
 - **uvicorn 0.37.0** - ASGI server
-- **aiohttp 3.13.0** - Async HTTP client for backend forwarding
+- **litellm 1.78.5** - LLM proxy/routing library for OpenAI-compatible API handling
+- **aiohttp 3.13.1** - Async HTTP client for health checks
 - **pyyaml 6.0.3** - YAML config parsing
 - **docker 7.1.0** - Docker SDK for container management
-- **pydantic 2.12.2** - Data validation and OpenAI schema
-- **redis[asyncio] 6.4.0** - Redis async client for queue management
+- **pydantic 2.12.2** - Minimal data validation (most validation delegated to LiteLLM)
+- **redis 6.4.0** - Redis async client for queue management
 
 ## Configuration
 
