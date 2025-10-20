@@ -214,7 +214,25 @@ docker create --name llama-3.2-3b-server -p 8080:8080 \
 # Backend: kyuz0/amd-strix-halo-toolboxes:vulkan-radv (NOT rocm-7rc - vision needs Vulkan)
 # Key differences: Single-file model (NO --mmproj needed), 32K context, uses libmtmd
 # Proxy limitation: Vision support NOT YET IMPLEMENTED - requires API updates for image input
-# See research output above for full configuration when ready to implement
+
+# TODO: Nanonets-OCR2-3B Vision OCR Model (NOT YET CONFIGURED)
+# Downloaded: /mnt/ai_models/huggingface/nanonets-ocr2-3b/ (3.29GB Q8_0 + mmproj)
+# Backend: kyuz0/amd-strix-halo-toolboxes:vulkan-radv (vision models prefer Vulkan)
+# Base: Qwen2.5-VL-3B-Instruct fine-tuned for OCR (LaTeX, tables, markdown)
+# Requires: --mmproj flag for separate vision encoder file
+# Context: 128K tokens, excellent for long document OCR
+# Proxy limitation: Vision support NOT YET IMPLEMENTED - requires API updates for image input
+# Docker command when ready:
+#   docker create --name nanonets-ocr2-server -p 8080:8080 \
+#     --device /dev/dri --device /dev/kfd \
+#     -v /mnt/ai_models:/models \
+#     kyuz0/amd-strix-halo-toolboxes:vulkan-radv \
+#     llama-server -m /models/huggingface/nanonets-ocr2-3b/Nanonets-OCR2-3B.Q8_0.gguf \
+#     --mmproj /models/huggingface/nanonets-ocr2-3b/mmproj-model-f16.gguf \
+#     --alias nanonets-ocr2-3b -ngl 999 -c 32768 -b 2048 -ub 1024 --no-mmap \
+#     --cache-type-k f16 --cache-type-v f16 \
+#     --flash-attn on \
+#     --host 0.0.0.0 --port 8080 --jinja
 
 # Huihui-Qwen3-VL-30B (Q8_0, Vision-Language, port 8080) - EXPERIMENTAL
 # ⚠️ WARNING: Vision support NOT YET IMPLEMENTED in proxy
