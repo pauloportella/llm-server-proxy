@@ -39,6 +39,10 @@ services:
       - REDIS_PASSWORD=redis_password
       - REDIS_DB=0
       - NUM_WORKERS=${NUM_WORKERS:-2}  # Override via env or default to 2
+      # Langfuse observability (override via env)
+      - LANGFUSE_SECRET_KEY=${LANGFUSE_SECRET_KEY:-}
+      - LANGFUSE_PUBLIC_KEY=${LANGFUSE_PUBLIC_KEY:-}
+      - LANGFUSE_HOST=${LANGFUSE_HOST:-}
     logging:
       driver: json-file
       options:

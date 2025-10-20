@@ -22,3 +22,6 @@ pydantic==2.12.2
 
 # Redis queue (async support)
 redis[asyncio]==6.4.0
+
+# Observability and tracing
+langfuse==3.8.0
