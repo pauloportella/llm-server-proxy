@@ -117,3 +117,9 @@ models:
     backend_url: http://localhost:8080/v1
     health_url: http://localhost:8080/health
     startup_timeout: 30  # 30 seconds (actual ~5-8 seconds, 128K context)
+
+  mxbai-embed-large-v1:
+    container_name: mxbai-embed-server
+    backend_url: http://localhost:8081/v1
+    health_url: http://localhost:8081/health
+    startup_timeout: 30  # 30 seconds (actual ~3-5 seconds, embedding model with ROCm GPU)

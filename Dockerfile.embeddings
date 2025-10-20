@@ -1,0 +1,25 @@
+FROM python:3.11-slim
+
+WORKDIR /app
+
+# Install uv for fast dependency management
+COPY --from=ghcr.io/astral-sh/uv:latest /uv /usr/local/bin/uv
+
+# Install ROCm PyTorch FIRST (critical for AMD GPU acceleration)
+RUN uv pip install --system --pre torch pytorch-triton-rocm \
+    --index-url https://download.pytorch.org/whl/nightly/rocm7.0
+
+# Install remaining dependencies (will use ROCm torch already installed)
+RUN uv pip install --system \
+    "sentence-transformers>=5.1.1" \
+    "fastapi>=0.115.0" \
+    "uvicorn>=0.32.0" \
+    "pydantic>=2.10.0" \
+    "numpy>=2.2.6" \
+    "transformers>=4.57.0"
+
+# Copy server script
+COPY embedding_server.py .
+
+# Run server
+CMD ["python", "embedding_server.py"]

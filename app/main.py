@@ -14,7 +14,7 @@ from datetime import datetime
 import aiohttp
 import docker
 import litellm
-from litellm import acompletion
+from litellm import acompletion, aembedding
 from fastapi import FastAPI, HTTPException, Request
 from fastapi.responses import JSONResponse, StreamingResponse
 
@@ -576,6 +576,51 @@ async def chat_completions(chat_request: ChatCompletionRequest, request: Request
         raise HTTPException(
             status_code=500,
             detail=f"Error processing request: {str(e)}"
+        )
+
+
+@app.post("/v1/embeddings")
+async def embeddings(request: Request):
+    """OpenAI-compatible embeddings endpoint via LiteLLM."""
+    request_body = await request.json()
+    model = request_body.get("model", "unknown")
+
+    # Validate model exists
+    if model not in config.list_models():
+        raise HTTPException(
+            status_code=400,
+            detail=f"Unknown model: {model}. Available: {config.list_models()}"
+        )
+
+    try:
+        # Switch to requested model (embeddings models are typically small/fast)
+        await switch_model(model)
+
+        # Get model config and forward via LiteLLM
+        model_config = config.get_model(model)
+
+        # Add openai/ prefix for LiteLLM routing
+        litellm_model = f"openai/{model}" if not model.startswith("openai/") else model
+
+        response = await aembedding(
+            model=litellm_model,
+            input=request_body.get("input", []),
+            api_base=model_config.backend_url,
+            api_key="dummy-key",
+            timeout=config.request_timeout,
+            # Pass through other params
+            **{k: v for k, v in request_body.items()
+               if k not in ["model", "input"]}
+        )
+
+        # Convert to dict
+        return response.model_dump() if hasattr(response, 'model_dump') else dict(response)
+
+    except Exception as e:
+        logger.error(f"Embeddings error: {e}")
+        raise HTTPException(
+            status_code=500,
+            detail=f"Embeddings error: {str(e)}"
         )
 
 
