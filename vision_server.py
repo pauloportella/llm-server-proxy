@@ -4,7 +4,7 @@
 import torch
 import uvicorn
 from fastapi import FastAPI
-from pydantic import BaseModel
+from pydantic import BaseModel, ConfigDict
 from typing import List, Dict, Any, Union, Optional
 from transformers import Qwen3VLMoeForConditionalGeneration, AutoProcessor
 
@@ -24,10 +24,14 @@ processor = AutoProcessor.from_pretrained(MODEL_PATH, local_files_only=True)
 print("Model loaded successfully!")
 
 class Message(BaseModel):
+    model_config = ConfigDict(extra='ignore')
+
     role: str
     content: Union[str, List[Dict[str, Any]]]
 
 class ChatCompletionRequest(BaseModel):
+    model_config = ConfigDict(extra='ignore')
+
     model: str
     messages: List[Message]
     max_tokens: Optional[int] = 128

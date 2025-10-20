@@ -1,14 +1,15 @@
 # LLM Queue Proxy Dependencies
 # Python 3.12+
+# ALL DEPENDENCIES UPDATED TO LATEST STABLE VERSIONS
 
 # Web framework
-fastapi==0.119.0
-uvicorn[standard]==0.37.0
+fastapi==0.119.1
+uvicorn[standard]==0.38.0
 
 # HTTP client
 aiohttp==3.13.1
 
-# LLM proxy/routing library for standardized OpenAI-compatible API handling
+# LLM proxy/routing library
 litellm==1.9.5
 
 # YAML config
@@ -17,8 +18,8 @@ pyyaml==6.0.3
 # Docker SDK
 docker==7.1.0
 
-# Pydantic (included with FastAPI but pinned for clarity)
-pydantic==2.12.2
+# Pydantic
+pydantic==2.12.3
 
 # Redis queue (async support)
 redis[asyncio]==6.4.0
