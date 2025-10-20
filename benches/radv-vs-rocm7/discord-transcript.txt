@@ -1,0 +1,2584 @@
+==============================================================
+Guild: Strix Halo Homelab
+Channel: AI / llms
+Topic: Everything about various LLMs that can be run on Strix Halo APUs https://strixhalo-homelab.d7.wtf/AI/AI-Capabilities-Overview
+After: 12/10/2025 00:00
+==============================================================
+
+[12/10/2025 01:30] noimnull
+https://github.com/Kocoro-lab/Shannon
+
+{Embed}
+https://github.com/Kocoro-lab/Shannon
+GitHub - Kocoro-lab/Shannon: Open-source AI agent orchestrator with...
+Open-source AI agent orchestrator with enterprise-grade security, cost controls, and vendor flexibility. An alternative to OpenAI AgentKit - Kocoro-lab/Shannon
+https://images-ext-1.discordapp.net/external/_NaQMLBBY0F7wxtQ1SdUf63PeD-ctz0uOJ35vRWAO3k/https/opengraph.githubassets.com/8a37e6329c669649b037601433598945287bf6b5aea3f5be96a26b734fe329fd/Kocoro-lab/Shannon
+
+
+[12/10/2025 03:29] noimnull
+looks like droid is beating claude code benchmarks
+
+
+[12/10/2025 03:29] noimnull
+https://youtu.be/fYeGHLGJyX8
+
+{Embed}
+Ray Amjad
+https://www.youtube.com/watch?v=fYeGHLGJyX8
+Droid: The Great Coding Agent You’ve Never Heard Of
+Master vibe coding and vibe marketing: https://www.skool.com/ai-startup-school
+
+—— MY APPS ——
+
+🎙️HyperWhisper, write 5x faster with your voice: https://www.hyperwhisper.com/
+- Use coupon code GG1MJYAK for 40% off
+
+💬 MindDeck, an advanced frontend for LLMs: https://minddeck.ai/
+- Use coupon code PYHK4MC6 for 40% off
+
+📲 Tensor A...
+https://images-ext-1.discordapp.net/external/8LsKQpguHWvyl8NhvjGEzveqOvNu06bsUeh-d4_21DU/https/i.ytimg.com/vi/fYeGHLGJyX8/maxresdefault.jpg
+
+
+[12/10/2025 03:39] noimnull
+nvm its not opensource
+
+
+[12/10/2025 09:34] darkbasic4
+https://github.com/kyuz0/amd-strix-halo-toolboxes/commit/765cc5c7337f7a41126dbf0a3864f88885cfc3cf
+Why is it still called rocm-7rc? It it the release candidate or 7.0.2?
+
+{Embed}
+https://github.com/kyuz0/amd-strix-halo-toolboxes/commit/765cc5c7337f7a41126dbf0a3864f88885cfc3cf
+updated benchs · kyuz0/amd-strix-halo-toolboxes@765cc5c
+
+
+[12/10/2025 12:45] kyuz0.
+I should rename it to The rock nightly builds, they used to track the 7rc when I started.
+
+
+[12/10/2025 12:46] kyuz0.
+It's just that renaming might break all the automatic pipelines that I gave for building and testing
+
+{Reactions}
+😂
+
+[12/10/2025 12:46] darkbasic4
+Adding a note in the README would be enough I guess
+
+{Reactions}
+👍
+
+[13/10/2025 04:18] infunity5776
+Howdy everybody!
+Couple questions...
+
+Is anybody using the Strix Halo to train LoRAs?
+
+Am I crazy for thinking I could? 
+
+😄
+
+
+[13/10/2025 05:25] lhl
+you can do it, i've tested it (but uh, i train on much better hardware so it was just a check to see if it could be done)
+
+{Reactions}
+🙏
+
+[13/10/2025 05:26] lhl
+https://discord.com/channels/1384139280020148365/1384297342936809546/1416612499314442293
+
+{Reactions}
+🙏
+
+[13/10/2025 08:18] sinricpro
+Hi guys, just wanted to check whether anyone tried DeepSeek-V3.2-Exp and whats the experience like
+
+
+[13/10/2025 15:10] infunity5776
+Another quick question for anybody out there... This is probably a dumb one. If we run an LLM completely on the NPU, is the CPU completely free to run other models at the same time?
+
+
+[13/10/2025 17:57] giverofcake
+The NPU is capable of running LLMs  just fine, Lemonade can run GPT OSS 20B for example. Support for it compared to the GPU is a lot more limited though, you basically can't run it in Linux and there's only so many models that can be run on the NPU through Lemonade or similar. 
+The bigger issue with your idea is that the NPU, GPU and CPU all share the same memory bandwidth (technically the CPU has worse bandwidth), and LLMs are memory bandwidth limited. So you could run another model in parallel, but you'd still be slowing things down
+
+
+[13/10/2025 19:57] noimnull
+https://fxtwitter.com/karpathy/status/1977755427569111362
+
+{Embed}
+Andrej Karpathy (@karpathy)
+https://fxtwitter.com/karpathy/status/1977755427569111362
+Excited to release new repo\: nanochat\!
+︀︀\(it's among the most unhinged I've written\)\.
+︀︀
+︀︀Unlike my earlier similar repo nanoGPT which only covered pretraining, nanochat is a minimal, from scratch, full\-stack training/inference pipeline of a simple ChatGPT clone in a single, dependency\-minimal codebase\. You boot up a cloud GPU box, run a single script and in as little as 4 hours later you can talk to your own LLM in a ChatGPT\-like web UI\.
+︀︀
+︀︀It weighs \~8,000 lines of imo quite clean code to\:
+︀︀
+︀︀\- Train the tokenizer using a new Rust implementation
+︀︀\- Pretrain a Transformer LLM on FineWeb, evaluate CORE score across a number of metrics
+︀︀\- Midtrain on user\-assistant conversations from SmolTalk, multiple choice questions, tool use\.
+︀︀\- SFT, evaluate the chat model on world knowledge multiple choice \(ARC\-E/C, MMLU\), math \(GSM8K\), code \(HumanEval\)
+︀︀\- RL the model optionally on GSM8K with "GRPO"
+︀︀\- Efficient…
+https://images-ext-1.discordapp.net/external/2uMj_WjHk6S5u7oESbfdzQAkPnSnrhna_LiRT8OTv-Y/%3Fname%3Dorig/https/pbs.twimg.com/media/G3JjbtjbIAAQdaz.png
+FxTwitter
+
+
+[13/10/2025 22:52] flash_blood
+Is there a benchmarking tool that’s agnostic to the inferencing backend? Like I want to evaluate performance between different serving setups like LM studio, llama.cpp, ollama, lemonade server, etc. so it’s comparing them on equal footing?
+
+
+[14/10/2025 03:17] lhl
+sglang and vllm have "bench" serving which are the standard, work against any OpenAI compatible endpoints
+
+{Reactions}
+❤️
+
+[14/10/2025 03:19] lhl
+the general standard for testing is to use ShareGPT (a standard ShareGPT dataset) which i don't think is multiturn but is generall better than random generation since you can test predictions like speculative decode against real data
+
+
+[14/10/2025 13:24] nishaero
+DGX spark performance is now available, seems to be luck stronger for AI workloads but limited on bandwidth. The performance is noteworthy here compared to the cost of 4K 
+
+https://youtu.be/-3r2woTQjec
+
+{Embed}
+LMSYS Org Official
+https://www.youtube.com/watch?v=-3r2woTQjec
+NVIDIA DGX Spark In-Depth Review: A New Standard for Local AI Infer...
+Also check out our blog post about NVIDIA DGX Spark: https://lmsys.org/blog/2025-10-13-nvidia-dgx-spark/
+
+Unboxing and benchmarking NVIDIA’s bold new step into personal AI computing — the DGX Spark.
+This compact, champagne-gold powerhouse brings supercomputer-class performance to your desk, combining elegant industrial design with serious co...
+https://images-ext-1.discordapp.net/external/ZCKTsodDkEHV5StruZvoWXXpNaNVtqVaK798EFKtNqI/https/i.ytimg.com/vi/-3r2woTQjec/maxresdefault.jpg
+
+
+[14/10/2025 13:27] kprasadvnsi
+It's strange that none of the reviewers disassemble the device to show internals.
+
+
+[14/10/2025 13:28] nishaero
+they are not allowed to.. as mentioned by dave's garage
+
+
+[14/10/2025 13:29] kingguppy_
+The entire review industry is kinda hamstrung by NVIDIA's intense, creepy control over reviews. Some of them are pretty outspoken about it.
+
+
+[14/10/2025 13:32] kingguppy_
+Well, not the entire industry, but you can be pretty sure that anyone reviewing a pre-release or free devices from NVIDIA is under some horrible restrictions, whether they mention it or not.
+
+
+[14/10/2025 13:33] kingguppy_
+Picked this video at random, Gamers Nexus have whined about it a few times: https://www.youtube.com/watch?v=AiekGcwaIho
+
+{Embed}
+Gamers Nexus
+https://www.youtube.com/watch?v=AiekGcwaIho
+NVIDIA's Dirty Manipulation of Reviews
+SUPPORT OUR INDEPENDENCE. Use code "IDGAF" at checkout for 10% off at the GN store. Grab a Paper Launch cotton T-shirt here: https://store.gamersnexus.net/products/paper-launch-cotton or a tri-blend variant here: https://store.gamersnexus.net/products/paper-launch-triblend (or grab a Modmat, Solder Mat, copper-plated mule mug of thermal conducti...
+https://images-ext-1.discordapp.net/external/UA8TeB3vDMvPdeqgPMcIwmdljSPC5dM71QPnzmoKwBE/https/i.ytimg.com/vi/AiekGcwaIho/maxresdefault.jpg
+
+
+[14/10/2025 13:37] kingguppy_
+In conclusion: don't trust any early reviews of NVIDIA hardware to be unbiased.
+
+
+[14/10/2025 13:41] valeriodebevv
+If benchmarks are already so bad with nvidia "blessing" the reviews, imagine how bad they would be if reviewers could be fully transparent lol
+
+{Reactions}
+😂 (2)
+
+[14/10/2025 14:49] aquamorph
+I've not seen any reviewers benchmark AI properly
+
+
+[14/10/2025 14:50] aquamorph
+I think part of the problem is they have no idea how it works and they need a plug and play program that spits out numbers
+
+
+[14/10/2025 16:30] bindage
+I wanna see a review using a cluster
+
+
+[14/10/2025 16:43] omniflan
+Yeah, gotta love all of the "it's ridiculously fast with <arbitrary MoE model with no given setup details>, especially compared to <dense, also unspecified model that doesn't partition or shuffle context well across memory pools, also lacking setup details>" summaries that make up the entirety of their LLM (or image or whatever) sections
+
+Even when they use the same model throughout, there is never enough information to have any idea what they actually tested to make the numbers meaningful in comparison to any other reviews or your own benchmarks
+
+{Reactions}
+😂 (3)
+
+[14/10/2025 16:46] heisencord
+Is it normal to take several minutes to process a follow-up prompt for a model like qwen3:30b in ollama?
+
+
+[14/10/2025 16:47] heisencord
+Context. Asked it for some simple German sentences by level. That took about a minute (text generation is snappy once it gets started). The follow-up question has been thinking for like 15 minutes.
+
+{Attachments}
+https://cdn.discordapp.com/attachments/1384591615343198228/1427669153115930805/Screenshot_20251014_074555_Chrome.jpg?ex=68f64b82&is=68f4fa02&hm=2580e25d787f3c5ff4e992445d67e9726a610c1e64d9f49d788aa65054dbe73b&
+
+
+[14/10/2025 16:53] omniflan
+If the LLM engine needed to abort the request due to something like context being exhausted, it might have done it gracelessly, without properly closing the TCP connection (llama.cpp has a tendency to do this with 12b models on 16GiB cards in my experience, though it's hardly model-specific, that's just a way I can reproduce it easily) 
+
+The client wouldn't have any idea the server gave up until the TCP timeout, typically two hours, has passed
+
+{Reactions}
+👍
+
+[14/10/2025 16:56] bindage
+I just wait for reasonable 3rd party reviews
+
+
+[14/10/2025 16:57] omniflan
+I'd just been waiting for videos where, even if the person showing the thing off didn't know what they were doing, they might have recorded their process
+
+
+[14/10/2025 21:05] heisencord
+I've got 128GB of shared memory. Why is Qwen30 (silently) running out of context very early on? How do I fix that?
+
+{Attachments}
+https://cdn.discordapp.com/attachments/1384591615343198228/1427734074390351982/Screenshot_20251014_120452_Chrome.jpg?ex=68f5df39&is=68f48db9&hm=14b612a1a1eb02c37ba880a859ecb6e086dea6f5be4f99d11e12960969cd7427&
+
+
+[14/10/2025 21:05] heisencord
+This was frozen this way for 20 minutes
+
+
+[14/10/2025 21:06] omniflan
+Have you tried increasing the context with which you launch the process?
+
+The LLM engine will typically have a parameter for this that overrides whatever the model's default would be
+
+
+[14/10/2025 21:09] heisencord
+Is it possible to change context from within open webui or do I need to set it when starting up the ollama docker container?
+
+
+[14/10/2025 21:13] omniflan
+Probably when loading the model, but I'm unfamiliar with ollama or Open WebUI
+
+
+[14/10/2025 21:22] giverofcake
+Check ollama's logs to see what's happening. Default context is often low but it usually isn't _that_ low.
+
+
+[14/10/2025 21:25] bindage
+what do you have the context set to?
+
+
+[14/10/2025 21:25] bindage
+4k?
+
+
+[14/10/2025 21:26] heisencord
+Whatever defaults are. Probably 4k. I got GLM-4.5 up and running and then saw Open Webui lets you one click download and deploy more models but can't seem to change parameters for them
+
+
+[14/10/2025 21:27] bindage
+$ ollama ps
+NAME           ID              SIZE     PROCESSOR    CONTEXT    UNTIL              
+gpt-oss:20b    17052f91a42e    17 GB    100% GPU     131072     4 minutes from now
+
+
+[14/10/2025 23:36] primal6413
+Has anyone used a draft model with another model in llamacpp? Did it work ok?
+
+
+[14/10/2025 23:42] primal6413
+@arcticjoe You said my gpt20 did better?
+
+
+[14/10/2025 23:43] arcticjoe
+yep
+
+
+[14/10/2025 23:44] primal6413
+Can you show me your run?
+
+
+[14/10/2025 23:44] arcticjoe
+
+
+{Attachments}
+https://cdn.discordapp.com/attachments/1384591615343198228/1427774047415963739/image.png?ex=68f60473&is=68f4b2f3&hm=8fcf426e6771a0e1fd1f2d7d533f255453ecd2df9affb847f033d57b73d5fdab&
+
+
+[14/10/2025 23:44] arcticjoe
+not by much, might also come down to my temps
+
+
+[14/10/2025 23:44] primal6413
+Yeah I don't thin kthat's bad at all
+
+
+[14/10/2025 23:45] primal6413
+Run vulkan and see how crappy it gets
+
+
+[14/10/2025 23:45] arcticjoe
+yep I did
+
+
+[14/10/2025 23:45] primal6413
+I'm testing qwen30b right now too
+
+
+[14/10/2025 23:45] arcticjoe
+do your mem clocks fluctuate like mad on vulkan?
+
+
+[14/10/2025 23:45] primal6413
+no
+
+
+[14/10/2025 23:46] arcticjoe
+mine do under amdgpu_top
+
+
+[14/10/2025 23:46] primal6413
+basically  chills at 2900mhz when i'm testing
+
+
+[14/10/2025 23:46] primal6413
+power consumption is like 90-120w
+
+
+[14/10/2025 23:46] primal6413
+gpu temp swings between 64-70
+
+
+[14/10/2025 23:46] arcticjoe
+but stay at solid 1000mhz when on rocm
+
+
+[14/10/2025 23:46] arcticjoe
+sorry I mean GFX_MCLK
+
+
+[14/10/2025 23:47] arcticjoe
+not GFX_SCLK
+
+
+[14/10/2025 23:47] primal6413
+I think I saw something like that earlier that showed 1000mhz
+
+
+[14/10/2025 23:47] primal6413
+Oh it was in adrenaline
+
+
+[14/10/2025 23:47] arcticjoe
+ah, i forget, you are on windows
+
+
+[14/10/2025 23:47] primal6413
+ohh
+
+
+[14/10/2025 23:47] primal6413
+sorry i was looking at my gpu clock
+
+
+[14/10/2025 23:47] primal6413
+i'm dumb
+
+
+[14/10/2025 23:47] primal6413
+hang on
+
+
+[14/10/2025 23:47] primal6413
+
+
+{Attachments}
+https://cdn.discordapp.com/attachments/1384591615343198228/1427774966094495824/image.png?ex=68f6054e&is=68f4b3ce&hm=b149a2ca620a63b285a4c1916f4df6251fe20cef9a412301f6e14769ede125ec&
+
+
+[14/10/2025 23:48] arcticjoe
+I might fire up windows to see how mine runs
+
+
+[14/10/2025 23:48] arcticjoe
+what pc do you have?
+
+
+[14/10/2025 23:49] primal6413
+The nimo variant
+
+
+[14/10/2025 23:49] justmarky
+Your docker isn't putting rocm in /opt
+
+
+[14/10/2025 23:50] arcticjoe
+one sec, will check
+
+
+[14/10/2025 23:51] arcticjoe
+ah yeah, it needs these 2 as well
+
+
+[14/10/2025 23:52] arcticjoe
+
+
+{Attachments}
+https://cdn.discordapp.com/attachments/1384591615343198228/1427776028042068059/apply-rocwmma-fix.sh?ex=68f6064b&is=68f4b4cb&hm=c544b3cfae8d90a9bfcb4aa4fe31e4ace7ce4dffba56d7f8ba848d5b30458258&
+https://cdn.discordapp.com/attachments/1384591615343198228/1427776028444725298/build-rocwmma.sh?ex=68f6064b&is=68f4b4cb&hm=011a474f8b44bea6e2056112605749d06478ce0faefcc6851b11fb9682bff029&
+
+
+[14/10/2025 23:52] justmarky
+You said you were not using wmma, and those are in the toolboxes folder on build
+
+
+[14/10/2025 23:52] arcticjoe
+ive got it to make both for me
+
+
+[14/10/2025 23:53] arcticjoe
+wmma and without
+
+
+[14/10/2025 23:53] justmarky
+hmm, it's in the actual image
+
+
+[14/10/2025 23:53] justmarky
+just not when accessing via toolbox
+
+
+[14/10/2025 23:56] arcticjoe
+this is the wmma dockerfile glm made me
+
+{Attachments}
+https://cdn.discordapp.com/attachments/1384591615343198228/1427777169513517207/Dockerfile.rocm-7.10-rocwmma?ex=68f6075c&is=68f4b5dc&hm=5bfbd5e3ee4d994f1629e81f07e6ef07ed121bea00741703d58f140b2c97562e&
+
+
+[14/10/2025 23:57] arcticjoe
+few different variables, but mostly the same
+
+
+[14/10/2025 23:57] arcticjoe
+also made me 7.9, which I am yet to try
+
+
+[15/10/2025 00:05] justmarky
+It has 7.10 but looking for 7.0
+
+
+[15/10/2025 00:05] justmarky
+going to need to hack at this, you don't have a known working version?
+
+
+[15/10/2025 00:06] arcticjoe
+these dockerfiles work for me
+
+
+[15/10/2025 00:06] arcticjoe
+ive just used them to build my containers earlier
+
+
+[15/10/2025 00:06] justmarky
+Not sure how
+
+
+[15/10/2025 00:07] justmarky
+I'll add a sym link to the docker file to get around it but will need to rebuild since I don't have root inside of the container
+
+
+[15/10/2025 00:07] arcticjoe
+this is what ive git cloned current toolboxes
+
+
+[15/10/2025 00:07] arcticjoe
+cd into ./amd-strix-halo-toolboxes/toolboxes
+
+
+[15/10/2025 00:08] arcticjoe
+and run podman build using
+
+
+[15/10/2025 00:08] arcticjoe
+podman build --no-cache -t localhost/llama-rocm-7.9 -f Dockerfile.rocm-7.9 .
+
+
+[15/10/2025 00:09] arcticjoe
+have just ran the 7.9 build just to check that they work and its built it
+
+
+[15/10/2025 00:09] arcticjoe
+
+
+{Attachments}
+https://cdn.discordapp.com/attachments/1384591615343198228/1427780487774081107/image.png?ex=68f60a73&is=68f4b8f3&hm=6906f51857a787037992f2633c04c8682df30ccc0d055b45ecc6dfe89959bcf3&
+
+
+[15/10/2025 00:10] justmarky
+I think I know what happened one sec
+
+
+[15/10/2025 00:10] arcticjoe
+
+
+{Attachments}
+https://cdn.discordapp.com/attachments/1384591615343198228/1427780705282425062/image.png?ex=68f60aa7&is=68f4b927&hm=dc9150d48abb9d9635edbce5320f6c85f405fe6476a9806d5be2e14c020efbe2&
+
+
+[15/10/2025 00:11] arcticjoe
+glm says all thats needed is those 3 files
+
+
+[15/10/2025 00:13] justmarky
+my bad, my bench script was still pointing to my llama bench that was compiled with 7.0
+
+{Reactions}
+👍
+
+[15/10/2025 00:13] arcticjoe
+all good
+
+
+[15/10/2025 00:13] justmarky
+speed don't look good though
+
+
+[15/10/2025 00:13] justmarky
+
+
+{Attachments}
+https://cdn.discordapp.com/attachments/1384591615343198228/1427781510525882530/image.png?ex=68f60b67&is=68f4b9e7&hm=b278e01df3023ecf0a22dd09c1da29df76b7cd29a56af1829a0df3fc20624b1b&
+
+
+[15/10/2025 00:15] arcticjoe
+this is the cmd line i used llama-bench -m ./models/oss-20b/gpt-oss-20b-mxfp4.gguf -fa 1 --mmap 0 -b 2048 -ub 2048 -p 2048 -n 32 -d 0,4096,8012,16374,32768
+
+
+[15/10/2025 00:15] justmarky
+
+
+{Attachments}
+https://cdn.discordapp.com/attachments/1384591615343198228/1427781936922759198/image.png?ex=68f60bcc&is=68f4ba4c&hm=c0702e8eda2b9075bede814bd4a8e0c3fc037358d4d7595c96e67387c4903f6b&
+
+
+[15/10/2025 00:15] justmarky
+dropping to same as you had
+
+
+[15/10/2025 00:16] justmarky
+still way off from what I have going
+
+
+[15/10/2025 00:16] justmarky
+
+
+{Attachments}
+https://cdn.discordapp.com/attachments/1384591615343198228/1427782129865064559/image.png?ex=68f60bfa&is=68f4ba7a&hm=c5c60e872000f0e0edf9feb7899b43ac7c853fa43ec8595fd3e929420d5acac0&
+
+
+[15/10/2025 00:16] justmarky
+I've seen people get over 900 pp, but I can't get near it
+
+
+[15/10/2025 00:16] justmarky
+not without my 3090
+
+
+[15/10/2025 00:16] justmarky
+
+
+{Attachments}
+https://cdn.discordapp.com/attachments/1384591615343198228/1427782237633642563/image.png?ex=68f60c14&is=68f4ba94&hm=f1b23d8e64440f7d2e79b2706a6dbae1c0d8c1aea2f7633cd79e919eb95d6643&
+
+
+[15/10/2025 00:16] arcticjoe
+what os are you on?
+
+
+[15/10/2025 00:17] justmarky
+Arch
+
+
+[15/10/2025 00:17] arcticjoe
+i tried cachy but had lower t/s on it
+
+
+[15/10/2025 00:17] justmarky
+and I am using GTT
+
+
+[15/10/2025 00:17] arcticjoe
+so went back to fedora 42
+
+
+[15/10/2025 00:17] arcticjoe
+same, iommu=off
+
+
+[15/10/2025 00:18] omniflan
+Can I ask what sort of difference you saw between Cachy and Fedora?
+
+
+[15/10/2025 00:18] omniflan
+(I'm assuming the default low-latency Cachy kernel)
+
+
+[15/10/2025 00:18] arcticjoe
+about 10% less PP
+
+
+[15/10/2025 00:18] justmarky
+Cachy is Arch w/ optimized builds
+
+
+[15/10/2025 00:18] arcticjoe
+but maybe i failed to config it right
+
+
+[15/10/2025 00:18] justmarky
+for newer cpus
+
+
+[15/10/2025 00:19] justmarky
+been trying to get over 900 pp with just rocm
+
+
+[15/10/2025 00:19] omniflan
+Low latency usually comes at the cost of lower throughput, but 10% seems reasonable for that sort of thing
+
+
+[15/10/2025 00:19] justmarky
+nothing I do can get close
+
+
+[15/10/2025 00:19] arcticjoe
+seemed like GPU power settings were lower with cachy for me
+
+
+[15/10/2025 00:19] arcticjoe
+as in wattage rarely hit 120w i get on fedora
+
+
+[15/10/2025 00:20] omniflan
+Wouldn't PP happen mostly on the CPU?
+
+
+[15/10/2025 00:20] arcticjoe
+not unless you offload
+
+
+[15/10/2025 00:20] arcticjoe
+should be all GPU with strix halo
+
+
+[15/10/2025 00:22] arcticjoe
+this is my kernel params on grub
+
+
+[15/10/2025 00:22] arcticjoe
+amd_iommu=off amdgpu.gttsize=131072 ttm.pages_limit=33554432
+
+
+[15/10/2025 00:22] arcticjoe
+also disabled iommu in bios
+
+
+[15/10/2025 00:22] justmarky
+at this point I just give up
+
+
+[15/10/2025 00:23] justmarky
+way too many headaches
+
+
+[15/10/2025 00:23] justmarky
+I should have my new system in soon
+
+
+[15/10/2025 00:23] arcticjoe
+dont give up lol, strix halo is half the pain some other amd cards are
+
+
+[15/10/2025 00:24] justmarky
+I've compiled so many times, it's a massive headache
+
+
+[15/10/2025 00:24] arcticjoe
+bought 6x MI50s before strix halo, now that shit was painful
+
+
+[15/10/2025 00:24] justmarky
+best I can get is just under 800pp
+
+
+[15/10/2025 00:24] justmarky
+I am putting together a dual epyc /w 6000 Pro and 1.5Tb
+
+
+[15/10/2025 00:24] justmarky
+this thing is just for goofing off but been a lot of headaches
+
+
+[15/10/2025 00:25] arcticjoe
+tbh, i'd create a fresh partition for fedora 42 and do a quick install. then just use the toolboxes
+
+
+[15/10/2025 00:26] arcticjoe
+mind you, i havent tried an extra GPU on mine, so there may be some complexities from that
+
+
+[15/10/2025 00:27] arcticjoe
+unfortunately anything non nvidia seems to take a shitload of tinkering to get going
+
+{Reactions}
+💯
+
+[15/10/2025 00:30] justmarky
+Yup.
+
+
+[15/10/2025 00:30] justmarky
+It’s getting better in terms of performance but support is bad
+
+
+[15/10/2025 00:32] arcticjoe
+yep, i had no idea what I was getting myself into when buying amd cards, minefield of config params and binaries
+
+
+[15/10/2025 00:33] arcticjoe
+eternally grateful to @kyuz0 for his toolboxes and guides, without those i'd still be trying to figure out what it is that i need to install lol
+
+{Reactions}
+💯 (3) ❤️ (2)
+
+[15/10/2025 00:34] arcticjoe
+anyhoo, better go get some sleep, catch yous later. good luck with it
+
+
+[15/10/2025 03:01] primal6413
+Has anybody used nexa.ai? Apparently they have a sdk that supports qwen vl models even on windows and im curious about performance
+
+
+[15/10/2025 06:19] lhl
+had codex running in the background for the past few days. had to do a bunch of nudging and it crashed my desktop more than a few times, but here's a WMMA port of the MFMA code. Not sure if it's actually working very well and the output is sort of random (but I didn't do chat templating) but it's probably a good starting point for anyone interested in poking around: https://github.com/lhl/gpt-oss-amd?tab=readme-ov-file#howto
+
+Also a good test to see that yes gpt5/codex-high is capable enough for writing WMMA/HIP code that compiles at least. There's a WORKING.md and AGENTS.md and a wmma-reference folder
+
+{Embed}
+https://github.com/lhl/gpt-oss-amd?tab=readme-ov-file
+GitHub - lhl/gpt-oss-amd: implement GPT-OSS 20B & 120B C++ inferenc...
+implement GPT-OSS 20B & 120B C++ inference from scratch on AMD GPUs - lhl/gpt-oss-amd
+https://images-ext-1.discordapp.net/external/CYVaAFrwc7RONjOs8l-BmHHKVGH7uBBOFDdm6EAyVjc/https/opengraph.githubassets.com/f7ed536169ba7ba0e2f765a565a39260862aa936fe4187d2ceb1b3a891a2ab9a/lhl/gpt-oss-amd
+
+{Reactions}
+❤️ (9) 🔥 (4)
+
+[15/10/2025 13:43] noimnull
+dammn i was trying to fix this😭
+
+
+[15/10/2025 13:44] noimnull
+
+
+{Attachments}
+https://cdn.discordapp.com/attachments/1384591615343198228/1427985521656991849/RDT_20251015_0742284257927335176742195.jpg?ex=68f620a7&is=68f4cf27&hm=fed4820fd8310ce443abc4c280d8832aa853be7095196c20199ba9e5b736d975&
+
+{Reactions}
+😂 (9)
+
+[15/10/2025 17:10] darkbasic4
+Shouldn't Qwen3-235B-A22B-Instruct-2507-UD-Q3_K_XL fit with a 131072 context on a 128GB HP Zbook Ultra AI G1a? I'm using `amd_iommu=off amdgpu.gttsize=131072 ttm.pages_limit=33554432 spl.spl_hostid=0x00bab10c` and 512MB reserved to the GPU in the bios. If I omit `-c 50000` alltogether it works fine.
+
+{Attachments}
+https://cdn.discordapp.com/attachments/1384591615343198228/1428037225353973760/message.txt?ex=68f650ce&is=68f4ff4e&hm=6c1829ff8b4230225423a4464a1425c92ae04b4c481bafaf8f56aafefde77f10&
+
+
+[15/10/2025 17:10] darkbasic4
+I''m using kyuz0/amd-strix-halo-toolboxes with cachyos zenv4
+
+
+[15/10/2025 17:13] omniflan
+You've set `ttm.pages_limit`, but not `ttm.pages_pool_size` (they should typically be the same)
+
+And I don't know how big that particular quant is, but context-allocation takes space, too, like 1.8GiB per 4k tokens
+
+
+[15/10/2025 17:14] darkbasic4
+I've followed what they recommended here and they don't mention ttm.pages_pool_size: https://github.com/kyuz0/amd-strix-halo-toolboxes?tab=readme-ov-file#62-kernel-parameters-tested-on-fedora-42
+
+
+[15/10/2025 17:15] darkbasic4
+A 130K context should fit while I can't even fit 50K: https://github.com/kyuz0/amd-strix-halo-toolboxes?tab=readme-ov-file#4-memory-planning--vram-estimator
+
+{Embed}
+https://github.com/kyuz0/amd-strix-halo-toolboxes?tab=readme-ov-file
+GitHub - kyuz0/amd-strix-halo-toolboxes
+Contribute to kyuz0/amd-strix-halo-toolboxes development by creating an account on GitHub.
+https://images-ext-1.discordapp.net/external/EhTBpRWzaOGBsMg4nQUJLVnghXaQkNATS4P7Qek7Mi4/https/opengraph.githubassets.com/9005d7d6add8b57435b81a05c090a3e0e4e15f75fffa0982549e71af529eba11/kyuz0/amd-strix-halo-toolboxes
+
+
+[15/10/2025 21:22] darkbasic4
+I've tried with ROCm and I can't get a 64KB context neither 🙁
+Even the much smaller gpt-oss-120b cannot start with a 128KB context (but it starts with 64KB). The pc has just been rebooted and not a single app has been opened.
+
+{Attachments}
+https://cdn.discordapp.com/attachments/1384591615343198228/1428100631859560608/image.png?ex=68f5e31b&is=68f4919b&hm=1890e895bd5c7ab56b25086c623e498c0183d53869d1505479b2774f4d37a96c&
+
+
+[15/10/2025 21:27] darkbasic4
+This shouldn't happen... I wonder if it may be due to the cachyos optimizations wasting more memory
+
+{Attachments}
+https://cdn.discordapp.com/attachments/1384591615343198228/1428102055628902513/image.png?ex=68f5e46e&is=68f492ee&hm=624bba3b627220e9541fe564bb551f463f50291ca2c64de45a0348eb6657ac84&
+
+
+[15/10/2025 21:41] kyuz0.
+If you run amdgpu_top, how much GTT memory does it show?
+
+
+[15/10/2025 21:42] darkbasic4
+@kyuz0
+
+{Attachments}
+https://cdn.discordapp.com/attachments/1384591615343198228/1428105874127454470/image.png?ex=68f5e7fd&is=68f4967d&hm=01d982f0084f5d95df27f416a73168c9f1dffe1523c4f27c5b8fce5a07c4174e&
+
+
+[15/10/2025 21:44] kyuz0.
+I might've asked you already, what command are you using to start the llama-server?
+
+
+[15/10/2025 21:44] darkbasic4
+```
+llama-server --no-mmap -ngl 999 -fa on -c 65536 -m ~/devel/models/gpt-oss-120b/gpt-oss-120b-F16.gguf
+```
+
+```
+llama-server --no-mmap -ngl 999 -fa on -c 65536 -m ~/devel/models/qwen3-coder-235B-A22B/UD-Q3_K_XL/Qwen3-235B-A22B-Instruct-2507-UD-Q3_K_XL-00001-of-00003.gguf
+```
+
+
+[15/10/2025 21:45] kyuz0.
+I'll try to run those on my Framework Desktop
+
+{Reactions}
+🙏
+
+[15/10/2025 21:46] darkbasic4
+Thanks
+
+
+[15/10/2025 21:51] kyuz0.
+Runs fine
+
+{Attachments}
+https://cdn.discordapp.com/attachments/1384591615343198228/1428108046696972350/Screenshot_20251015-205044.png?ex=68f5ea03&is=68f49883&hm=624cc511e846a7b5b106e9085c213ef97a7cd05bb2b90237adc20d7a75176d67&
+
+
+[15/10/2025 21:52] kyuz0.
+But I don't run a desktop environment, I run a minimal fedora install without desktop environment, that leaves more memory available
+
+{Reactions}
+💪
+
+[15/10/2025 21:52] darkbasic4
+I wonder if the fact that I use zfs might also be the culprit
+
+
+[15/10/2025 21:53] kyuz0.
+Can't see a reason why, but not too familiar with zfs
+
+
+[15/10/2025 21:53] darkbasic4
+Because zfs tends to use quite a bit of memory by storing data in RAM
+
+
+[15/10/2025 21:54] kyuz0.
+Might be, check how much base RAM is used
+
+
+[15/10/2025 21:55] darkbasic4
+Sure, I will run free -m before starting the toolbox, with and without a desktop environment
+
+
+[15/10/2025 22:04] jrbaron
+I'm able to run the gpt oss  with 65k like this
+
+    # GPT-OSS-120B
+    docker create --name gpt-oss-server -p 8080:8080 \
+      --device /dev/dri --device /dev/kfd \
+      -v /mnt/ai_models:/models \
+      kyuz0/amd-strix-halo-toolboxes:vulkan-radv \
+      llama-server -m /models/huggingface/gpt-oss-120b-Q4_K_M/gpt-oss-120b-
+  Q4_K_M-00001-of-00002.gguf \
+      --alias gpt-oss-120b -ngl 999 -c 65536 \
+      --cache-type-k q4_0 --cache-type-v q4_0 \
+      --host 0.0.0.0 --port 8080 --jinja
+
+
+[15/10/2025 22:40] bluesomnambulist
+hm, I've updated my Fedora to the lastest, including kernel, but now my memory is limited (amdgpu_top shows 64GB). Is there anything that i have to configure again? /etc/default/grub still looks correct
+
+
+[15/10/2025 22:43] bluesomnambulist
+alright, had to run grub2-mkconfig again...
+
+
+[15/10/2025 23:00] darkbasic4
+@kyuz0 this is `free -m` without the graphical interface right before before starting the container.
+```
+               total        used        free      shared  buff/cache   available
+Mem:          128009        2114      126653           2         145      125895
+Swap:              0           0           0
+```
+```
+toolbox enter llama-rocm-7rc-rocwmma
+llama-server --no-mmap -ngl 999 -fa on -c 65536 -m ~/devel/models/qwen3-coder-235B-A22B/UD-Q3_K_XL/Qwen3-235B-A22B-Instruct-2507-UD-Q3_K_XL-00001-of-00003.gguf
+```
+
+{Attachments}
+https://cdn.discordapp.com/attachments/1384591615343198228/1428125510868926496/message.txt?ex=68f5fa47&is=68f4a8c7&hm=15b636ede584fb3fe021d5c060ba4df17ab69065d3d39b0d231ac9339c032f82&
+
+
+[15/10/2025 23:04] darkbasic4
+Tomorrow I will look for an USB SSD so I can try with both the model and the podman backend on a filesystem other than zfs.
+
+
+[15/10/2025 23:10] johnastebbins
+arc_summary will show you details of zfs memory usage.  "Current size:" shows how much it is using. I don't know how zfs behaves in conjunction with the gpu allocator, but normally it will release memory when the system is under memory pressure.
+
+
+[15/10/2025 23:20] noimnull
+@lhl do u use that $200 codex?
+
+
+[16/10/2025 00:31] lhl
+yes
+
+
+[16/10/2025 00:49] primal6413
+He got that big $
+
+
+[16/10/2025 01:11] lhl
+If you’re using it for productive work it pays for itself in a single day. It’s more productive than most of the jr eng I’ve worked with over the past couple few decades
+
+{Reactions}
+😂
+
+[16/10/2025 02:29] primal6413
+It’s probably more productive than most of the people I work with and I’m MAANG
+
+{Reactions}
+😂 (2)
+
+[16/10/2025 03:55] noimnull
+200 x 12 x 50 = $120000
+
+
+[16/10/2025 03:56] noimnull
+120k and a house is all i need to retire
+
+
+[16/10/2025 04:36] primal6413
+TIL I can retire
+
+{Reactions}
+kekdoge
+
+[16/10/2025 10:33] darkbasic4
+It's the zfs ARC cache. I've tried to disable it (sudo zfs set primarycache=none zroot) and now I can load it no problem:
+
+```
+llama-server --no-mmap -ngl 999 -fa on -c 131072 -m ~/devel/models/qwen3-coder-235B-A22B/UD-Q3_K_XL/Qwen3-235B-A22B-Instruct-2507-UD-Q3_K_XL-00001-of-00003.gguf
+```
+
+{Reactions}
+❤️
+
+[16/10/2025 11:46] lhl
+you're budgeting for 50 years of ChatGPT Pro subscriptions? 😂
+
+{Reactions}
+😂 (2)
+
+[16/10/2025 11:57] noimnull
+assuming i live another 50yrs
+
+
+[16/10/2025 16:15] johnastebbins
+@darkbasic interesting, and good to know. Thanks for the follow-up. You may also be able to set a arc max limit if you don't want to completely disable it. There are module parameters `zfs_arc_min` and `zfs_arc_max` to control this
+
+
+[16/10/2025 16:27] darkbasic4
+@JohnAStebbins I'm getting decent results disabling ARC just on the dataset that stores the models: if it uses ARC it will immediately fill it up with ~120GB of data as soon as I load the model.
+
+
+[16/10/2025 16:28] johnastebbins
+lol, that makes sense...
+
+
+[16/10/2025 16:32] darkbasic4
+Anyway since this is currently my working laptop I cannot afford to waste more than 96GB for the model or I won't have enough ram to do anything else. The best model I've found that fits under that space is gpt-oss-120b-F16.gguf (but I have to use --grammar-file ~/models/cline.gbnf to use it with Cline for coding). Unfortunately even with ROCm 7 RC it's way too slow to be actually useful. Does anybody have a different experience with coding?
+
+
+[16/10/2025 16:37] gone_410
+Just curios, have you compared rocm7 and vulkan?
+
+
+[16/10/2025 16:39] darkbasic4
+Not personally but ROCm seems to be faster with F16: https://kyuz0.github.io/amd-strix-halo-toolboxes/
+
+
+[16/10/2025 16:39] darkbasic4
+Way faster with Prompt Processing
+
+
+[16/10/2025 16:41] gone_410
+Hm, will try on windows
+
+
+[16/10/2025 17:08] bindage
+Can someone who is using vulkan check for me?
+do you have two devices showing under vulkaninfo?
+                GPU id = 0 (AMD Radeon Graphics (RADV GFX1151))
+                Layer-Device Extensions: count = 0
+
+                GPU id = 1 (llvmpipe (LLVM 20.1.2, 256 bits))
+                Layer-Device Extensions: count = 0
+
+
+[16/10/2025 17:16] darkbasic4
+```
+$ vulkaninfo | grep "GPU id"
+ERROR: [Loader Message] Code 0 : libVkLayer_MESA_anti_lag.so: cannot open shared object file: No such file or directory
+        GPU id = 0 (Radeon 8060S Graphics (RADV GFX1151))
+        GPU id = 0 (Radeon 8060S Graphics (RADV GFX1151))
+        GPU id = 0 (Radeon 8060S Graphics (RADV GFX1151))
+        GPU id = 0 (Radeon 8060S Graphics (RADV GFX1151))
+        GPU id = 0 (Radeon 8060S Graphics (RADV GFX1151))
+        GPU id = 0 (Radeon 8060S Graphics (RADV GFX1151))
+        GPU id = 0 (Radeon 8060S Graphics (RADV GFX1151))
+GPU id : 0 (Radeon 8060S Graphics (RADV GFX1151)) [VK_KHR_xcb_surface, VK_KHR_xlib_surface]:
+GPU id : 0 (Radeon 8060S Graphics (RADV GFX1151)) [VK_KHR_wayland_surface]:
+```
+
+
+[16/10/2025 17:32] bindage
+ty...
+kk, I've got two seperate driver frameworks loaded
+
+
+[16/10/2025 17:36] bindage
+nope...
+amdgpu is the kernel driver
+mesa is the userspace and cpu driver
+
+
+[16/10/2025 18:05] omniflan
+I did see those two devices when I was testing with Bazzite (which had a memory bandwidth issue, unsure whether it's related); I have not checked since switching to Cachy, but I'll look when I get home if I don't see an update here first.
+
+
+[16/10/2025 18:49] mushoz
+Use Vulkan, radv specifically. ROCm slows down massively at longer context depths. Vulkan much less
+
+
+[16/10/2025 19:23] johnastebbins
+@binder🅅  I have both devices
+`    Devices: count = 2
+        GPU id = 0 (Radeon 8060S Graphics (RADV GFX1151))
+        Layer-Device Extensions: count = 0
+
+        GPU id = 1 (llvmpipe (LLVM 20.1.8, 256 bits))
+        Layer-Device Extensions: count = 0
+`
+
+{Reactions}
+👍
+
+[16/10/2025 20:35] noimnull
+@lhl can you send your https://github.com/ryoppippi/ccusage
+
+{Embed}
+https://github.com/ryoppippi/ccusage
+GitHub - ryoppippi/ccusage: A CLI tool for analyzing Claude Code/Co...
+A CLI tool for analyzing Claude Code/Codex CLI usage from local JSONL files. - ryoppippi/ccusage
+https://images-ext-1.discordapp.net/external/ilhtMjRGk7K_tJiiT3YlSX1Tdz20xXMzgpRjA4VyMkY/https/repository-images.githubusercontent.com/992755069/86c75f49-0257-405c-8181-0aab26e7ae6c
+
+
+[16/10/2025 20:35] noimnull
+im interested to know how much api key would cost
+
+
+[16/10/2025 21:53] darkbasic4
+It seems it makes a HUGE difference. radv is 2.55x times faster than ROCm 7 RC when generating tokens with a 100K context.
+
+{Attachments}
+https://cdn.discordapp.com/attachments/1384591615343198228/1428470924876845107/Screenshot_From_2025-10-16_21-32-53.png?ex=68f5ea78&is=68f498f8&hm=dc9837b920b1a48d328e71c2f6f9149c7960c836fd842a65be221678c737b447&
+https://cdn.discordapp.com/attachments/1384591615343198228/1428470925463916544/Screenshot_From_2025-10-16_21-50-39.png?ex=68f5ea78&is=68f498f8&hm=7c7ae8ebfa7080af47d8e4566a37b6803de69848a32a636b8898e7690cd64443&
+
+
+[16/10/2025 22:34] arcticjoe
+i think the opposite might be true with rocm 7.10 nightly
+
+
+[16/10/2025 22:36] arcticjoe
+(assuming llama-bench -d 100000 does the same thing as 100k context)
+
+
+[16/10/2025 22:39] arcticjoe
+ps. ive not done llama-bench with 100k depth yet, but have done with 32k and rocm 7.10 was twice as fast
+
+
+[16/10/2025 23:12] mushoz
+Do you have 32k numbers?
+
+
+[16/10/2025 23:13] mushoz
+Curious to see how to compares
+
+
+[16/10/2025 23:13] mushoz
+Also, if vulkan is 2.55 faster than ROCM at 100k, then ROCM getting a 2x boost in the nightly would still make ROCM slower
+
+
+[16/10/2025 23:57] alluring_piglet_29962
+Has anyone got this working on Strix Halo? https://github.com/lhl/gpt-oss-amd
+Are there perf improvements?
+
+{Embed}
+https://github.com/lhl/gpt-oss-amd
+GitHub - lhl/gpt-oss-amd: implement GPT-OSS 20B & 120B C++ inferenc...
+implement GPT-OSS 20B & 120B C++ inference from scratch on AMD GPUs - lhl/gpt-oss-amd
+https://images-ext-1.discordapp.net/external/Afumjr3Aja4WtJn9pTdAjSfXbaNAcDEY0vcMnB5Wu44/https/opengraph.githubassets.com/31b79482262ae59c8441048b5eab4f95936f4b7699579af4b827ed063fca650f/lhl/gpt-oss-amd
+
+
+[16/10/2025 23:57] alluring_piglet_29962
+I tried yesterday and hit compilation errors
+
+
+[17/10/2025 01:08] noimnull
+it's half baked you have to continue from there
+
+{Reactions}
+👍
+
+[17/10/2025 03:51] lhl
+Hmm I didn’t have compile errros, but I’m also not supporting it 😂
+
+
+[17/10/2025 05:06] alluring_piglet_29962
+Would be nice to know which version of rocm it is known to work with
+
+
+[17/10/2025 05:07] alluring_piglet_29962
+Not that I am asking for support you understand
+
+
+[17/10/2025 07:00] lhl
+I did all my building/compiling on whatever the latest TheRock/ROCm nightly was, let's see:
+```
+🐟 ❯ rocm-sdk version
+7.10.0a20251013
+```
+
+
+[17/10/2025 07:02] lhl
+I have my CLAUDE.md/AGENTS.md checked in so I'd recommend getting Codex High or GPT5 High to assist. Note: Claude is a dumbdumb on C/HIP code so I'd avoid, I only use Claude to pretty stuff up (emojis and colors on the test harnesses :pugdance:  )
+
+
+[17/10/2025 07:17] alluring_piglet_29962
+Thanks 🙂
+
+
+[17/10/2025 08:44] darkbasic4
+I'm using https://kyuz0.github.io/amd-strix-halo-toolboxes/ rocm7-rc how can I check which version of ROCm it's using inside the container?
+
+
+[17/10/2025 09:12] kyuz0.
+it's using the latest nightly builds for rocm-7
+
+
+[17/10/2025 09:12] darkbasic4
+Yeah but I've built it a couple of days ago and I'm not sure if it's rocm 7.10 or earlier
+
+
+[17/10/2025 09:12] darkbasic4
+That's why I'd like to see the version
+
+
+[17/10/2025 09:17] arcticjoe
+numbers for oss 20b
+
+{Attachments}
+https://cdn.discordapp.com/attachments/1384591615343198228/1428643051500212314/image.png?ex=68f5e206&is=68f49086&hm=ff795341427dd22269d38c781a8711491ba2578f941b074a1e049d067e9ee9a9&
+
+
+[17/10/2025 09:17] arcticjoe
+for 120b:
+
+{Attachments}
+https://cdn.discordapp.com/attachments/1384591615343198228/1428643185080533042/image.png?ex=68f5e226&is=68f490a6&hm=38541bf3fe26591ea9a0a286dd917e99a2401d69bff0324d29c0f67a07d5e4c0&
+
+
+[17/10/2025 09:19] arcticjoe
+modded toolbox files for building 7.10 nightly (courtesy of glm 4.6 and roo code):
+
+
+[17/10/2025 09:23] arcticjoe
+
+
+{Attachments}
+https://cdn.discordapp.com/attachments/1384591615343198228/1428644482521501716/Dockerfile.rocm-7.10-rocwmma?ex=68f5e35b&is=68f491db&hm=24259d7721e0a68a8cb1bffa5e7d328e033ab2f568b57826a84a680fe3e939e4&
+https://cdn.discordapp.com/attachments/1384591615343198228/1428644482919694346/Dockerfile.rocm-7.10?ex=68f5e35b&is=68f491db&hm=9503d31658199f85c49a5c0cd66f25731f9b9d433c50aca6982d264ebd76eafd&
+
+
+[17/10/2025 09:23] arcticjoe
+wmma one seems slower
+
+
+[17/10/2025 09:24] arcticjoe
+to build:
+podman build --no-cache -t localhost/llama-rocm-7.10 -f Dockerfile.rocm-7.10 .
+
+
+[17/10/2025 09:25] arcticjoe
+and i think you also need these
+
+{Attachments}
+https://cdn.discordapp.com/attachments/1384591615343198228/1428645146462781480/build-rocwmma.sh?ex=68f5e3f9&is=68f49279&hm=28641ebc670820b3fb2d463b53aec0d5b3123a3bab2715585b0af15069d768bf&
+https://cdn.discordapp.com/attachments/1384591615343198228/1428645146932805713/apply-rocwmma-fix.sh?ex=68f5e3f9&is=68f49279&hm=159b1583f1bb06ee3239aa9b67a471712be33e90964c5c16174ac9a236568b9c&
+
+
+[17/10/2025 09:27] darkbasic4
+@arcticjoe could you please point me to the gpt-oss-120b-GGUF-mxfp4 page on huggingface.co? I've found this https://huggingface.co/unsloth/gpt-oss-120b-GGUF but I can't find mxfp4
+
+{Embed}
+https://huggingface.co/unsloth/gpt-oss-120b-GGUF
+unsloth/gpt-oss-120b-GGUF · Hugging Face
+https://images-ext-1.discordapp.net/external/7Wktpm4IF9KOul5x-O5XNAemlYj_EOR1vuzMLrbnP5Q/https/cdn-thumbnails.huggingface.co/social-thumbnails/models/unsloth/gpt-oss-120b-GGUF.png
+
+{Reactions}
+👍
+
+[17/10/2025 09:28] arcticjoe
+actually just read kyuz0 comment, sounds like his toolboxes already use the latest nightlies anyway
+
+
+[17/10/2025 09:28] arcticjoe
+this is the one I use https://huggingface.co/ggml-org/gpt-oss-120b-GGUF
+
+{Embed}
+https://huggingface.co/ggml-org/gpt-oss-120b-GGUF
+ggml-org/gpt-oss-120b-GGUF · Hugging Face
+https://images-ext-1.discordapp.net/external/rS4Sp7ieymLY_h4F1vAuQlmYsuYKjFTq_0h0DagOfC4/https/cdn-thumbnails.huggingface.co/social-thumbnails/models/ggml-org/gpt-oss-120b-GGUF.png
+
+
+[17/10/2025 09:31] darkbasic4
+@kyuz0 is it the same that you use on your mxfp4 benchmarks?
+
+
+[17/10/2025 09:32] mushoz
+Oh wow, those numbers are pretty good!
+
+
+[17/10/2025 09:32] kyuz0.
+I think so... are you finding different performance?
+
+
+[17/10/2025 09:35] darkbasic4
+Nope, I still have to test it and I wanted to be sure I was comparing apples to apples
+
+
+[17/10/2025 09:38] darkbasic4
+By the way I'm comparing GLM-4.5-Air-UD-Q4_K_XL to gpt-oss-120b-F16 with a 100K context and it takes FOREVER. gpt needs 15 minutes to make a summary of a 100K tokens book while GLM is running for the past 45 minutes and it's still processing the prompt.
+
+
+[17/10/2025 09:38] mushoz
+That is SWA in action for gpt-oss
+
+
+[17/10/2025 09:38] mushoz
+GLM has full attention, so the slowdown at deeper context depths are way more severe
+
+
+[17/10/2025 09:40] darkbasic4
+I really hope that swtching from gpt-oss-120b-F16 + rocm-7rc-rocwmma to gpt-oss-120b-mxfp4 + radv would be enough to make it somewhat usable for coding.
+
+
+[17/10/2025 10:05] arcticjoe
+ugh, looks like somethings changed on my machine and I am not getting anywhere near the numbers I had 2 days ago 🙁
+
+
+[17/10/2025 10:06] arcticjoe
+
+
+{Attachments}
+https://cdn.discordapp.com/attachments/1384591615343198228/1428655397849272330/image.png?ex=68f5ed85&is=68f49c05&hm=8c681704f1af5c86af1c06403215f02ad87fc68faf190841e169fd40d55e21c8&
+
+
+[17/10/2025 10:24] darkbasic4
+GLM-4.5-Air-UD-Q4_K_XL just finished. I'm not sure if it's due to the lack of SWA but it did a much better summary than GPT-OSS-120B-F16
+
+{Attachments}
+https://cdn.discordapp.com/attachments/1384591615343198228/1428659892062781592/image.png?ex=68f5f1b5&is=68f4a035&hm=1b83e6de7bb3a4352f3029f8040df0e3b5f2ff31c9dc44d238a76f4de5694f1f&
+
+
+[17/10/2025 10:24] mushoz
+Did you try gpt-oss with default reasoning effort or high?
+
+
+[17/10/2025 10:25] mushoz
+Those speeds are unusable for most use cases though xD
+
+
+[17/10/2025 10:25] darkbasic4
+Everything is at default, I don't even know how to switch to an higher reasoning effort in llama-server LOL
+
+
+[17/10/2025 10:27] darkbasic4
+Definitely not usable. I'm planning to switch to gpt-oss-120b-MXFP4 + https://gitlab.freedesktop.org/mesa/mesa/-/merge_requests/37791 and hopefully it will become usable for coding.
+
+
+[17/10/2025 10:29] mushoz
+Oooohhhh that is an interesting PR! How much performance uplift are you seeing?
+
+
+[17/10/2025 10:37] darkbasic4
+I didn't try it yet, but the author says +13% in prompt processing: https://gitlab.freedesktop.org/mesa/mesa/-/merge_requests/37791#note_3138319
+
+
+[17/10/2025 11:29] mushoz
+Still won't bring it close to ROCm speeds for pp, atleast for gpt-oss-120b
+
+
+[17/10/2025 11:49] darkbasic4
+> this makes radv now fly past amdvlk and rocm with llama.cpp, albeit for prompt processing only
+The author says it's faster than ROCm, but I can't see any benchmark.
+
+
+[17/10/2025 12:36] arcticjoe
+i think thats changed now
+
+
+[17/10/2025 12:36] arcticjoe
+at least with latest rocm nightlies
+
+
+[17/10/2025 12:37] arcticjoe
+im having to rebuild my fedora install as I seem to have broken it somehow, getting way lower scores on llama-bench than 2 days ago and in the process of trying to roll back all installed updates i seem to have messed it up more, so will back up home dir and try a fresh install again
+
+
+[17/10/2025 14:33] darkbasic4
+I've tried to test it but unfortunately mesa-git crashes
+
+{Attachments}
+https://cdn.discordapp.com/attachments/1384591615343198228/1428722570282401915/image.png?ex=68f62c15&is=68f4da95&hm=430f108b7edc9e6afa638e56a101b16bc0abc4f6afa1ed109cf4fb9c7986b70d&
+
+
+[17/10/2025 16:49] kprasadvnsi
+How do I run a model on Strix Halo if it's not available in a .gguf format?
+
+
+[17/10/2025 16:52] yolty
+Hi y'all I'm a bit new to the server
+
+
+[17/10/2025 16:52] yolty
+I've been thinking about clustering 6 395 boxes together over thunderbolt 4. Any good solutions or advice?
+
+
+[17/10/2025 16:53] yolty
+I have the evo x2 that I've been playing around with, but I'm looking to run larger models
+
+
+[17/10/2025 16:55] kingguppy_
+Well, I'd say you should be really sure that you want to specifically do that for some reason, because I'm sure there are several hardware combinations that you could use to get a similar amount of memory with much better performance without paying too much more.
+
+
+[17/10/2025 16:59] kingguppy_
+E.g. a Mac Studio with 512GiB RAM might be a viable alternative for you.
+
+
+[17/10/2025 17:01] kingguppy_
+But if you actually want to do it, a couple of YouTubers had a go at it a while back.
+
+
+[17/10/2025 17:05] kingguppy_
+https://www.youtube.com/watch?v=ZmY35-ifJuo https://www.youtube.com/watch?v=N5xhOqlvRh4
+
+{Embed}
+Alex Ziskind
+https://www.youtube.com/watch?v=ZmY35-ifJuo
+Near silent LLM Monster... NVIDIA, take notes
+This is how AMD's Ryzen AI Max+ 395 should be done - a whisper-quiet 128GB powerhouse that’s built for local AI, with the Framework Desktop boards.
+Check out ChatLLM: https://chatllm.abacus.ai/ltf
+
+🛒 Gear Links 🛒
+📦🖥️ Mini Rack: https://amzn.to/4dXfwan
+📦📏 Taller Mini Rack: https://amzn.to/4lKdCwb
+🌐⚡ 10Gb switch: https:/...
+https://images-ext-1.discordapp.net/external/iYWaU3bw2ZmRbf62uYUxR5aaDSJxsrJNJNcOlWp8vJY/https/i.ytimg.com/vi/ZmY35-ifJuo/maxresdefault.jpg
+
+{Embed}
+Jeff Geerling
+https://www.youtube.com/watch?v=N5xhOqlvRh4
+I built a private AI mini-cluster with Framework Desktop
+Can we build a private AI cluster in a mini rack with Framework's Desktop motherboard?
+
+Mentioned in this video:
+
+  - Framework Desktop: https://frame.work/desktop
+  - Level1Techs review of Framework Desktop: https://www.youtube.com/watch?v=L-xgMQ-7lW0
+  - Beowulf AI Cluster project: https://github.com/geerlingguy/beowulf-ai-cluster
+  - Blog pos...
+https://images-ext-1.discordapp.net/external/0yNTzmrXwWlc91-EvGB301PufRNGf9hM5iYtBmLH48o/https/i.ytimg.com/vi/N5xhOqlvRh4/maxresdefault.jpg
+
+
+[17/10/2025 17:07] kingguppy_
+I think they were just doing it over Ethernet though.
+
+
+[17/10/2025 17:07] yolty
+not viable. I'm looking to link them over thunderbolt 4, but I haven't seen a lot of info online about it.
+
+
+[17/10/2025 17:08] yolty
+I see this comment here, but curious about it
+
+{Attachments}
+https://cdn.discordapp.com/attachments/1384591615343198228/1428761542643421286/A8E28B40-E1FC-4EB0-9E49-494CB1E83B3D.png?ex=68f65060&is=68f4fee0&hm=d3147ffdcfac2ea95bd36d23325f3876bf5fcdd041e51e861a82c0e254a55514&
+
+
+[17/10/2025 17:35] darkbasic4
+Apparently with very large contexts unified memory can be slower than fixed 96GB.
+
+{Attachments}
+https://cdn.discordapp.com/attachments/1384591615343198228/1428768332840046723/image.png?ex=68f656b3&is=68f50533&hm=5ead1a47e433b6883d8540d2eb968418b1645560ac6dbcc64d76ddf9e339eb7a&
+
+
+[17/10/2025 17:39] kingguppy_
+Interesting. Are you setting `ttm.page_pool_size` in addition to `ttm.pages_limit`?
+
+
+[17/10/2025 17:39] lhl
+i've run rocm/vulkan memory benchmarks w/ both, no appreciable difference, but if it's windows and there's memory fragmentation... is this your own testing?
+
+
+[17/10/2025 17:40] darkbasic4
+No it's from this: https://www.youtube.com/watch?v=ZmY35-ifJuo
+
+{Embed}
+Alex Ziskind
+https://www.youtube.com/watch?v=ZmY35-ifJuo
+Near silent LLM Monster... NVIDIA, take notes
+This is how AMD's Ryzen AI Max+ 395 should be done - a whisper-quiet 128GB powerhouse that’s built for local AI, with the Framework Desktop boards.
+Check out ChatLLM: https://chatllm.abacus.ai/ltf
+
+🛒 Gear Links 🛒
+📦🖥️ Mini Rack: https://amzn.to/4dXfwan
+📦📏 Taller Mini Rack: https://amzn.to/4lKdCwb
+🌐⚡ 10Gb switch: https:/...
+https://images-ext-1.discordapp.net/external/iYWaU3bw2ZmRbf62uYUxR5aaDSJxsrJNJNcOlWp8vJY/https/i.ytimg.com/vi/ZmY35-ifJuo/maxresdefault.jpg
+
+
+[17/10/2025 17:41] kingguppy_
+Ah, they did tweak some related stuff so I wouldn't put too much stock in even month-old benchmarks.
+
+
+[17/10/2025 17:46] lhl
+also i think alex mostly just runs random lmstudio runs on stuff, does he even run temp 0 for his random runs (i don't think so, everything he shows on screen is different)
+
+
+[17/10/2025 17:48] lhl
+i saw a video where he was pointing out the mmap w/ rocm thing, could figure out the no mmap flag even though it showed up on screen and so just skipped running llama-bench. i know people like him and he seems like a nice guy but i don't think he actually cares at all about actually doing actual benchmarking. all fine and good as long as people aren't citing his perf numbers - none of it's controlled/repeatable
+
+{Reactions}
+👍
+
+[17/10/2025 17:55] lhl
+I've done some rpc tests a while back (over TB4) https://github.com/lhl/strix-halo-testing/tree/main/rpc-test
+
+
+[17/10/2025 18:05] yolty
+does it do well with larger models?
+
+
+[17/10/2025 18:06] lhl
+if you're not gonna click the link whevs
+
+
+[17/10/2025 18:09] yolty
+decent speeds, but stability is what I'm mostly concerned with xD
+
+
+[17/10/2025 18:10] yolty
+Was that running the full 40Gbps?
+
+
+[17/10/2025 18:12] lhl
+it was full speed but bandwidth does't really matter w/ layerwise splits since you're just passing residuals. i couldn't say about stability, i just brought stuff up to benchmark, never used it much since it was a remote cluster
+
+
+[17/10/2025 18:13] lhl
+i don't think there's much point to a cluster of those, you probably want to bug jeff geerling about the cluster stuff, he has his github repo but i don't know if he got bored, still has the hardware or what
+
+
+[17/10/2025 18:16] mark_91462
+I tried using an eGPU with my AI Max, and it slowed down performance, I don't see how a dual AI Max setup would improve speed, I don't think Tensor Parallel is going to realistically work very well over TB
+
+For $4K you can get a Xeon with AMX or a basic Epyc 9004/5, so the value isn't great. Or for a bit more a Mac 256GB
+
+
+[17/10/2025 18:17] yolty
+Just wish there was a more affordable option for running stupidly large models for inference
+
+
+[17/10/2025 18:27] lhl
+you can get stuff like this stupid cheap these days https://www.ebay.com/itm/317413547578 - you could go dual socket and get ddr4-2666, otherwise you need to go EPYC 9004.  you can get like 400GB/s+ theoretical mbw on those
+
+{Embed}
+https://www.ebay.com/itm/317413547578
+AMD EPYC 7601 CPU + Supermicro H11SSL-i + 2133P RAM multiple choice...
+And bad weather or peak season could make it longer.
+https://images-ext-1.discordapp.net/external/AgblOsF_P3X4pM0N-zyeNW0c6ndXtSFgopamkHkP49o/https/i.ebayimg.com/images/g/phEAAOSw49VjLaiS/s-l400.jpg
+
+
+[17/10/2025 18:29] lhl
+actually 9000s aren't so badly priced now https://www.ebay.com/itm/397061878560 qs memory controllers usually suck but still better than stxh
+
+{Embed}
+https://www.ebay.com/itm/397061878560
+AMD EPYC 9334 QS 32C64T+ T2SEEP SP5 9004 Motherboard ATX  TDP400W |...
+AMD EPYC 9334 QS  1. T2SEEP SP5 9004 Motherboard ATX  1. AMD EPYC 9334 QS：. Model AMD EPYC 9334QS（100-000000897-03）. Series EPYC 9004 Series. T2SEEP SP5 9004 Motherboard ：. ‌Processor ‌ Supports 1x AMD EPYC™ 9004/9005 series processor, max TDP 400W.
+https://images-ext-1.discordapp.net/external/Obqsekr9ZfsAfUl-ekBoYwy3WpXZJIJjMNExkBeb4H8/https/i.ebayimg.com/images/g/2u0AAeSwO3Fo3ZQ5/s-l400.jpg
+
+
+[17/10/2025 18:29] lhl
+full 12 channels of dimms and 5 x pcie 5.0 x16
+
+
+[17/10/2025 18:31] autoshot6869
+well, there is some ways to get improvements with that setup. The AI Max are essentially limited by memory BW most of the time (thats why dense models suck), so the "EXPENSIVE" part is the preprocessing of the tokens. If you split the parts between the eGPU doing only the Preprocessing and use the massive size of the unified memory for actual processing its a significant improvements as it allows much bigger context windows beeing useable on the AI Max with decent speed
+
+
+[17/10/2025 18:33] mark_91462
+I've heard this logic multiple times but it doesn't match with my understanding of models, which is that the entire model is needed to process the prompt
+
+
+[17/10/2025 18:34] autoshot6869
+well the preprocessing still needs a "big enough" gpu to hold the model
+
+
+[17/10/2025 18:35] lhl
+i've played around w/ it a bit and you can actually get big pp benefits even w/ gpu and ngl 0 (very easy to test) however if you're going to do serious offloading, you should be looking at something like https://github.com/kvcache-ai/ktransformers which has optimizations for optimal interleaving
+
+{Embed}
+https://github.com/kvcache-ai/ktransformers
+GitHub - kvcache-ai/ktransformers: A Flexible Framework for Experie...
+A Flexible Framework for Experiencing Cutting-edge LLM Inference Optimizations - kvcache-ai/ktransformers
+https://images-ext-1.discordapp.net/external/4dMjEqywmJTu1vEPsNh_SrTfV3ItUXCaWgyu2xgvcNI/https/opengraph.githubassets.com/1958a4a1af10414e145a50d880c106c9491971a167ab3a529324c32e57341fb3/kvcache-ai/ktransformers
+
+
+[17/10/2025 18:35] autoshot6869
+But .... if you use quantization on the main models lower layers and keep top layers intact the pp is fantastic
+
+
+[17/10/2025 18:35] autoshot6869
+and u can unquantizise in the AI MAx
+
+
+[17/10/2025 18:36] mark_91462
+I have an RTX 6000
+
+
+[17/10/2025 18:36] autoshot6869
+uhm 😄 why then play with the AI 395+ ?
+
+
+[17/10/2025 18:36] mark_91462
+I'd like to run Qwen 235 ideally LOL
+
+
+[17/10/2025 18:37] autoshot6869
+LoL at best in FP16 ?
+
+
+[17/10/2025 18:37] autoshot6869
+well u will always be limited by the PCIe4  x4
+
+
+[17/10/2025 18:38] mark_91462
+Q4 I suppose
+
+
+[17/10/2025 18:39] autoshot6869
+well that kind of big models are "tough"
+
+
+[17/10/2025 18:39] autoshot6869
+i am experimenting with gpt-20b to test the viability
+
+
+[17/10/2025 18:40] mark_91462
+I mostly run Image Generation on the RTX 6000, it is in my desktop, but I could put it in the eGPU case
+
+
+[17/10/2025 18:43] autoshot6869
+well i am running a spare 3090 now  and have a ~1gb utilization doing a pp offload with pure FP16
+
+
+[17/10/2025 18:43] autoshot6869
+the rest is used for KV caching basicly
+
+
+[17/10/2025 18:44] mark_91462
+Is it just loading the layers one by one into the GPU, and running a large batch size for the prompt?
+
+
+[17/10/2025 18:46] mark_91462
+I could see that being faster for processing large prompts
+
+
+[17/10/2025 18:52] autoshot6869
+jea
+
+
+[17/10/2025 18:52] autoshot6869
+well, monday i am back in the office and can get you some more details
+
+
+[17/10/2025 18:53] autoshot6869
+incl our benchmarks
+
+
+[17/10/2025 19:08] darkbasic4
+According to https://kyuz0.github.io/amd-strix-halo-toolboxes/ I should get `pp512 526.13 ± 3.20` and `tg128 52.90 ± 0.05` with radv. Instead I get `pp512 400.69 ± 25.13` and `tg128 37.56 ± 1.95`. Any idea why?
+
+```
+$ llama-bench \
+    -ngl 99 \
+    -mmp 0 \
+    -fa 1 \
+    -m ~/models/gpt-oss-120b/mxfp4/gpt-oss-120b-mxfp4-00001-of-00003.gguf
+ggml_vulkan: Found 1 Vulkan devices:
+ggml_vulkan: 0 = Radeon 8060S Graphics (RADV GFX1151) (radv) | uma: 1 | fp16: 1 | bf16: 0 | warp size: 64 | shared memory: 65536 | int dot: 1 | matrix cores: KHR_coopmat
+| model                          |       size |     params | backend    | ngl | fa | mmap |            test |                  t/s |
+| ------------------------------ | ---------: | ---------: | ---------- | --: | -: | ---: | --------------: | -------------------: |
+| gpt-oss 120B MXFP4 MoE         |  59.02 GiB |   116.83 B | Vulkan     |  99 |  1 |    0 |           pp512 |       400.69 ± 25.13 |
+| gpt-oss 120B MXFP4 MoE         |  59.02 GiB |   116.83 B | Vulkan     |  99 |  1 |    0 |           tg128 |         37.56 ± 1.95 |
+
+build: b07e25d (1024)
+```
+
+
+[17/10/2025 19:46] darkbasic4
+I've rebooted and it's a bit better. These are 3 consecutive runs from Gnome after a fresh boot:
+```
+| gpt-oss 120B MXFP4 MoE         |  59.02 GiB |   116.83 B | Vulkan     |  99 |  1 |    0 |           pp512 |       423.91 ± 17.20 |
+| gpt-oss 120B MXFP4 MoE         |  59.02 GiB |   116.83 B | Vulkan     |  99 |  1 |    0 |           tg128 |         47.97 ± 0.17 |
+
+| gpt-oss 120B MXFP4 MoE         |  59.02 GiB |   116.83 B | Vulkan     |  99 |  1 |    0 |           pp512 |       412.21 ± 15.01 |
+| gpt-oss 120B MXFP4 MoE         |  59.02 GiB |   116.83 B | Vulkan     |  99 |  1 |    0 |           tg128 |         48.19 ± 0.11 |
+
+| gpt-oss 120B MXFP4 MoE         |  59.02 GiB |   116.83 B | Vulkan     |  99 |  1 |    0 |           pp512 |       414.57 ± 15.59 |
+| gpt-oss 120B MXFP4 MoE         |  59.02 GiB |   116.83 B | Vulkan     |  99 |  1 |    0 |           tg128 |         48.03 ± 0.18 |
+```
+
+This is the best result I've got from 5 runs from the cmdline (fresh boot with no graphic environment):
+```
+| gpt-oss 120B MXFP4 MoE         |  59.02 GiB |   116.83 B | Vulkan     |  99 |  1 |    0 |           pp512 |       415.12 ± 14.17 |
+| gpt-oss 120B MXFP4 MoE         |  59.02 GiB |   116.83 B | Vulkan     |  99 |  1 |    0 |           tg128 |         46.20 ± 3.77 |
+```
+
+Stil far from the 52.90 of https://kyuz0.github.io/amd-strix-halo-toolboxes/ though
+
+{Reactions}
+🔥
+
+[17/10/2025 19:52] mark_91462
+FWIW, I've never been able to hit those numbers
+
+{Reactions}
+😮
+
+[17/10/2025 19:55] mark_91462
+Is that with the Framework motherboard?
+
+
+[17/10/2025 19:56] darkbasic4
+No, it's with the HP ZBook Ultra G1a laptop. But the bench is short enough that the termals shouldn't matter in theory.
+
+
+[17/10/2025 19:57] mark_91462
+The thermals on the Bosgame I have are great, it is the memory timings I wonder about
+
+
+[17/10/2025 19:59] darkbasic4
+This is what Gemini 2.5 PRO has to say about it
+
+{Attachments}
+https://cdn.discordapp.com/attachments/1384591615343198228/1428804748278235239/image.png?ex=68f5cfdd&is=68f47e5d&hm=eb18f411f5e1aa7fddda8df299b16eb3f9e461335b80be43c9ffb77ccddc6965&
+
+
+[17/10/2025 20:00] mark_91462
+Try running this:
+
+ sudo lshw | grep -A 10 bank:
+
+
+[17/10/2025 20:00] mark_91462
+you might need to install lshw with apt
+
+
+[17/10/2025 20:01] mark_91462
+*-bank:0            
+             description: Synchronous Unbuffered (Unregistered) 8532 MHz (0.1 ns)
+             product: MT62F4G32D8DV-023 WT
+             vendor: Micron Technology
+             physical id: 0
+             serial: 000000004D543632
+             slot: DIMM 0
+             size: 16GiB
+             width: 32 bits
+             clock: 4237MHz (0.2ns)
+
+
+[17/10/2025 20:02] darkbasic4
+
+
+{Attachments}
+https://cdn.discordapp.com/attachments/1384591615343198228/1428805325720391772/lshw.txt?ex=68f5d067&is=68f47ee7&hm=083d7c30988f5ff4bf3805619808aa2df511866a47add0128b2568749bfcebbc&
+
+
+[17/10/2025 20:05] mark_91462
+Your memory isn't running full speed
+
+
+[17/10/2025 20:06] mark_91462
+The part number shows an 8533 speed but you are running 8000.
+
+
+[17/10/2025 20:06] mark_91462
+That alone should bump your tokens per second over 50
+
+
+[17/10/2025 20:07] johnastebbins
+Same thing happening on the Framework. Is there some bios setting for this?
+
+
+[17/10/2025 20:08] mark_91462
+It's interesting that my Bosgame is running faster, but I get lower tokens per second
+
+
+[17/10/2025 20:09] darkbasic4
+I wonder if tlp may somehow be interfering, but it doesn't look like so:
+```
+$ sudo tlp-stat -p
+--- TLP 1.8.0 --------------------------------------------
+
++++ Processor
+CPU model = AMD RYZEN AI MAX+ PRO 395 w/ Radeon 8060S
+
+/sys/devices/system/cpu/cpu0/cpufreq/scaling_driver    = amd-pstate-epp
+/sys/devices/system/cpu/cpu0/cpufreq/scaling_governor  = performance
+/sys/devices/system/cpu/cpu0/cpufreq/scaling_available_governors = performance powersave
+/sys/devices/system/cpu/cpu0/cpufreq/scaling_min_freq  =  2000000 [kHz]
+/sys/devices/system/cpu/cpu0/cpufreq/scaling_max_freq  =  5187500 [kHz]
+/sys/devices/system/cpu/cpu0/cpufreq/cpuinfo_min_freq  =   625000 [kHz]
+/sys/devices/system/cpu/cpu0/cpufreq/cpuinfo_max_freq  =  5187500 [kHz]
+/sys/devices/system/cpu/cpu0/cpufreq/energy_performance_preference = performance [EPP]
+/sys/devices/system/cpu/cpu0/cpufreq/energy_performance_available_preferences = performance
+
+/sys/devices/system/cpu/cpu1..cpu31: omitted for clarity, use -v to show all
+
+/sys/devices/system/cpu/amd_pstate/status              = active
+/sys/devices/system/cpu/cpufreq/boost                  = 1
+/sys/module/workqueue/parameters/power_efficient       = Y
+/proc/sys/kernel/nmi_watchdog                          = 0
+
++++ Platform Profile
+/sys/firmware/acpi/platform_profile                    = performance
+/sys/firmware/acpi/platform_profile_choices            = low-power balanced performance
+```
+
+{Attachments}
+https://cdn.discordapp.com/attachments/1384591615343198228/1428807190906667148/tlp.conf?ex=68f5d224&is=68f480a4&hm=1382aec36befed2b4a3ce0bc55e56616aba7464d0dbd1dd67986b3ca787ad1d2&
+
+
+[17/10/2025 20:12] arcticjoe
+if you havent already, add md_iommu=off to your kernel params
+
+
+[17/10/2025 20:13] darkbasic4
+```
+Oct 17 19:32:35 arch-zfs kernel: Linux version 6.17.3-3-cachyos (linux-cachyos@cachyos) (clang version 20.1.8, LLD 20.1.8) #1 SMP PREEMPT_DYNAMIC Fri, 17 Oct 2025 10:40:14 +0000
+Oct 17 19:32:35 arch-zfs kernel: Command line: zfs=zroot/ROOT/arch rw sysrq_always_enabled=1 amd_iommu=off amdgpu.gttsize=131072 ttm.pages_limit=33554432 spl.spl_hostid=
+```
+
+
+[17/10/2025 20:13] mark_91462
+I don't think it's possible for TLP to do this
+
+
+[17/10/2025 20:14] arcticjoe
+not sure what I did with my fedora install, but today i was getting only 60% of performance I had 2 days ago, so I've re-tried cachyOS partition and figured out why it was underperforming fedora for me - iommu=off param wasnt working properly. with it off I am getting similar performance as I had with fedora before i broke it somehow
+
+
+[17/10/2025 20:17] mark_91462
+So I looked it up, and the Framework Desktop only has 8000 speed memory.
+
+The HP laptop and the Bosgame have 8533
+
+run the lshw command I gave above and it should tell you
+
+
+[17/10/2025 20:18] johnastebbins
+lshw shows the same memory modules in your example lshw MT62F4G32D8DV-023 WT
+
+
+[17/10/2025 20:19] mark_91462
+Post the whole output so we can see what MHZ it chose
+
+
+[17/10/2025 20:19] mark_91462
+It makes sense it would have the same memory, my understanding it that the Framework board is made by SixUnited
+
+
+[17/10/2025 20:20] darkbasic4
+Maybe there might be another reason: my HP G4 Thunderbolt 4 dock can only provide 120W while at full power the laptop consumes more and discharges. According to Gemini 2.5 Pro the firmware might actually throttle due to the discharge.
+
+{Attachments}
+https://cdn.discordapp.com/attachments/1384591615343198228/1428809890058735646/image.png?ex=68f5d4a7&is=68f48327&hm=68637ec6b438822ff25f9cc4f6237137fc7272290d2c61b261c43157e0228ed5&
+
+
+[17/10/2025 20:20] johnastebbins
+size: 128GiB
+        *-bank:0
+             description: Synchronous Unbuffered (Unregistered) 8000 MHz (0.1 ns)
+             product: MT62F4G32D8DV-023 WT
+             vendor: Micron Technology
+             physical id: 0
+             serial: 000000004D543632
+             slot: DIMM 0
+             size: 16GiB
+             width: 32 bits
+             clock: 3705MHz (0.3ns)
+
+
+[17/10/2025 20:21] arcticjoe
+quick q, for peeps more familiar with cachyOS / linux in general, there look to be zen4 versions of apps like toolbox, should I use those or do they require zen4 optimized kernel?
+
+
+[17/10/2025 20:22] darkbasic4
+No they don't
+
+
+[17/10/2025 20:22] darkbasic4
+You can use them with the stock arch linux kernel
+
+{Reactions}
+👍
+
+[17/10/2025 20:22] darkbasic4
+But you have to add the cachy os repos and have a matching system I think
+
+
+[17/10/2025 20:23] darkbasic4
+So that means you will get a "stock" arch linux kernel optimized for zen4 as well
+
+
+[17/10/2025 20:23] darkbasic4
+But you don't have to use the cachyos kernel with their patches
+
+
+[17/10/2025 20:27] mark_91462
+I am getting conflicting info when running dmidecode, only showing 8000 speed:
+
+Handle 0x001D, DMI type 17, 100 bytes
+Memory Device
+        Array Handle: 0x0011
+        Error Information Handle: 0x001C
+        Total Width: 32 bits
+        Data Width: 32 bits
+        Size: 16 GB
+        Form Factor: Other
+        Set: None
+        Locator: DIMM 0
+        Bank Locator: P0 CHANNEL D
+        Type: LPDDR5
+        Type Detail: Synchronous Unbuffered (Unregistered)
+        Speed: 8532 MT/s
+        Manufacturer: Micron Technology
+        Serial Number: 000000004D543632
+        Asset Tag: Not Specified
+        Part Number: MT62F4G32D8DV-023 WT
+        Rank: 2
+        Configured Memory Speed: 8000 MT/s
+        Minimum Voltage: 0.5 V
+        Maximum Voltage: 0.5 V
+        Configured Voltage: 0.5 V
+        Memory Technology: DRAM
+        Memory Operating Mode Capability: Volatile memory
+        Firmware Version: Unknown
+        Module Manufacturer ID: Bank 1, Hex 0x2C
+        Module Product ID: Unknown
+        Memory Subsystem Controller Manufacturer ID: Unknown
+        Memory Subsystem Controller Product ID: Unknown
+        Non-Volatile Size: None
+        Volatile Size: 16 GB
+        Cache Size: None
+        Logical Size: None
+        PMIC0 Manufacturer ID: Unknown
+        PMIC0 Device Type: Not Installed
+        RCD Manufacturer ID: Unknown
+        RCD Device Type: Not Installed
+
+
+[17/10/2025 20:29] mark_91462
+Ok, I looked deeper into this, the AI Max chip itself only supports 8000 speed.
+
+
+[17/10/2025 20:30] johnastebbins
+I wonder if your mobo is overclocking the memory? given you are getting a higer memory clock...
+
+
+[17/10/2025 20:32] mark_91462
+You should file a complaint with HP, they sold you a laptop as 8533 speed but the CPU isn't capable of that.
+
+
+[17/10/2025 20:32] arcticjoe
+reinstalling cachyos looks to have fixed things
+
+{Attachments}
+https://cdn.discordapp.com/attachments/1384591615343198228/1428812974302298112/image.png?ex=68f5d787&is=68f48607&hm=ead4bd732a4e571895d17427d3d1e42f5d506fa4a139ad268396bf8c917c2595&
+
+
+[17/10/2025 20:33] arcticjoe
+i am hoping someone with bios hacking skillz will get us an unlocked bios sooner or later
+
+
+[17/10/2025 20:34] arcticjoe
+from what I understand most mobos that were shipped have 8533mt/s memory chips, but bios is limiting them to 8000
+
+
+[17/10/2025 20:34] arcticjoe
+that extra 7-8% of bandwidth would definitely be appreciated
+
+
+[17/10/2025 20:35] mark_91462
+The chip itself is only rated for 8000, but HP is marketing the laptop as 8533
+
+
+[17/10/2025 20:36] omniflan
+Personally, I'm okay with stability being the default with these things, even if I'd *like* the option to take the risk
+
+
+[17/10/2025 20:38] johnastebbins
+What does the difference in clock rate reported by lshw mean, i.e. "clock: 3705MHz (0.3ns)" vs "clock: 4237MHz (0.2ns)". I assumed the 4237MHz you gave as an example @Mark came from an AI Max system
+
+
+[17/10/2025 20:39] arcticjoe
+ugh, i wasnt getting these on fedora 42 🙁 ... maybe i will go back to it
+Memory access fault by GPU node-1 (Agent handle: 0x5688340) on address 0x7f5650bc0000. Reason: Page not present or supervisor privilege.
+Aborted                    (core dumped) llama-bench -m ./gpt-oss-120b-GGUF-mxfp4/ggml-org_gpt-oss-120b-GGUF_gpt-oss-120b-mxfp4-00001-of-00003.gguf -fa 1 --mmap 0 -ub 2048 -b 2048 -t 32 -d 0,2048,4096,8192
+[bob@toolbx models]$
+
+
+[17/10/2025 20:40] mark_91462
+It would imply 8533 speed, but it appears to be an error, because that is not supported by the CPU, and dmidecode shows the 4000 speed
+
+
+[17/10/2025 20:40] johnastebbins
+ah, k
+
+
+[17/10/2025 20:41] omniflan
+https://discord.com/channels/1384139280020148365/1427784930414297108/1428766449844879516 is what I get from `dmidecode` on a Corsair box if you want to compare it
+
+
+[17/10/2025 20:41] arcticjoe
+anyone tried to get sglang going on strix halo?
+
+
+[17/10/2025 20:41] omniflan
+Might be meaningless, but maybe it'll help in some way
+
+It's running Cachy with a stock kernel
+
+
+[17/10/2025 20:42] mark_91462
+Same as the other SixUnited boards. Can you run:
+sudo lshw | grep -A 10 bank:
+
+
+[17/10/2025 20:43] arcticjoe
+bosgame m5 here, defo looks like 8533 chips in these :
+ sudo lshw | grep -A 10 bank:
+[sudo] password for bob: 
+        *-bank:0
+             description: Synchronous Unbuffered (Unregistered) 8532 MHz (0.1 ns)
+             product: MT62F4G32D8DV-023 WT
+             vendor: Micron Technology
+             physical id: 0
+             serial: 000000004D543632
+             slot: DIMM 0
+             size: 16GiB
+             width: 32 bits
+             clock: 4237MHz (0.2ns)
+        *-bank:1
+
+
+[17/10/2025 20:44] mark_91462
+You are getting the same speeds I am
+
+
+[17/10/2025 20:45] mark_91462
+The clock shouldn't be over 4000, unless they overclocked the CPU
+
+
+[17/10/2025 20:46] omniflan
+
+
+{Attachments}
+https://cdn.discordapp.com/attachments/1384591615343198228/1428816334132744192/lshw_Corsair.txt?ex=68f5daa8&is=68f48928&hm=9cc0b98c1db409a15c37f6433b11a6e5fe586944ceef046f55c8d296540ce072&
+
+
+[17/10/2025 20:52] mark_91462
+My system doesn't even show an i2c bus. I don't know how soldered memory works, it might not even have an SPD chip
+
+
+[17/10/2025 20:52] mark_91462
+I can't see any actual memory timings
+
+
+[17/10/2025 21:00] mushoz
+```
+[jaap@ultrabook-jaap ~]$ sudo lshw | grep -A 10 bank
+        *-bank:0
+             description: Synchronous Unbuffered (Unregistered) 8000 MHz (0.1 ns)
+             product: H58G78BK8BX114N
+             vendor: Hynix/Hyundai
+             physical id: 0
+             serial: 00000000
+             slot: Bottom-OnBoard 1
+             size: 16GiB
+             width: 32 bits
+             clock: 3705MHz (0.3ns)
+        *-bank:1
+             description: Synchronous Unbuffered (Unregistered) 8000 MHz (0.1 ns)
+             product: H58G78BK8BX114N
+             vendor: Hynix/Hyundai
+             physical id: 1
+             serial: 00000000
+             slot: Bottom-OnBoard 2
+             size: 16GiB
+             width: 32 bits
+             clock: 3705MHz (0.3ns)
+        *-bank:2
+             description: Synchronous Unbuffered (Unregistered) 8000 MHz (0.1 ns)
+             product: H58G78BK8BX114N
+             vendor: Hynix/Hyundai
+             physical id: 2
+             serial: 00000000
+             slot: Bottom-OnBoard 3
+             size: 16GiB
+             width: 32 bits
+             clock: 3705MHz (0.3ns)
+        *-bank:3
+             description: Synchronous Unbuffered (Unregistered) 8000 MHz (0.1 ns)
+             product: H58G78BK8BX114N
+             vendor: Hynix/Hyundai
+             physical id: 3
+             serial: 00000000
+             slot: Bottom-OnBoard 4
+             size: 16GiB
+             width: 32 bits
+             clock: 3705MHz (0.3ns)
+        *-bank:4
+             description: Synchronous Unbuffered (Unregistered) 8000 MHz (0.1 ns)
+             product: H58G78BK8BX114N
+             vendor: Hynix/Hyundai
+             physical id: 4
+             serial: 00000000
+             slot: Bottom-OnBoard 5
+             size: 16GiB
+             width: 32 bits
+             clock: 3705MHz (0.3ns)
+```
+
+wtf?
+
+
+[17/10/2025 21:00] mushoz
+Removed bank 5 through 7 due to character limit, but why is the clock so low?
+
+
+[17/10/2025 21:01] mushoz
+Only if you don't disable IOMMU. If you do, you get identical speeds
+
+{Reactions}
+❤️
+
+[17/10/2025 21:20] darkbasic4
+I was wondering the same, shouldn't it be 4000MHz?
+
+
+[17/10/2025 21:20] mushoz
+Yeah. You also have the HP zbook ultra g1a, right?
+
+
+[17/10/2025 21:21] darkbasic4
+Correct.
+
+
+[17/10/2025 21:21] mushoz
+At least we both have the same issue, so it doesn't look like it's an isolated thing
+
+
+[17/10/2025 21:23] darkbasic4
+I will try to reboot with the original charger instead of the Thunderbolt dock, let's see if it makes a difference.
+
+
+[17/10/2025 21:34] mushoz
+I am connected to the original charger, so I doubt it
+
+
+[17/10/2025 21:45] darkbasic4
+Holy cow it makes a huge difference, but in prompt processing only:
+```
+| model                          |       size |     params | backend    | ngl | fa | mmap |            test |                  t/s |
+| ------------------------------ | ---------: | ---------: | ---------- | --: | -: | ---: | --------------: | -------------------: |
+| gpt-oss 120B MXFP4 MoE         |  59.02 GiB |   116.83 B | Vulkan     |  99 |  1 |    0 |           pp512 |        515.47 ± 2.72 |
+| gpt-oss 120B MXFP4 MoE         |  59.02 GiB |   116.83 B | Vulkan     |  99 |  1 |    0 |           tg128 |         48.03 ± 0.18 |
+```
+
+
+[17/10/2025 21:46] mushoz
+That means your compute limit was increased, probably because the chip is running at a higher TDP
+
+
+[17/10/2025 21:46] mushoz
+Since TG stayed the same, I reckon you are still at the same 3705 memory speed
+
+
+[17/10/2025 21:46] darkbasic4
+It reports the same speed, yes
+
+
+[17/10/2025 21:50] darkbasic4
+dmidecode says 8000 MT/s though:
+```
+$ sudo dmidecode -t memory | grep -i "speed"
+    Speed: 8000 MT/s
+    Configured Memory Speed: 8000 MT/s
+    Speed: 8000 MT/s
+    Configured Memory Speed: 8000 MT/s
+    Speed: 8000 MT/s
+    Configured Memory Speed: 8000 MT/s
+    Speed: 8000 MT/s
+    Configured Memory Speed: 8000 MT/s
+    Speed: 8000 MT/s
+    Configured Memory Speed: 8000 MT/s
+    Speed: 8000 MT/s
+    Configured Memory Speed: 8000 MT/s
+    Speed: 8000 MT/s
+    Configured Memory Speed: 8000 MT/s
+    Speed: 8000 MT/s
+    Configured Memory Speed: 8000 MT/s
+```
+
+
+[17/10/2025 21:52] darkbasic4
+Is the Framework desktop overclocked to 8533 MT/s? Otherwise that still won't explain why it's faster at TG
+
+
+[17/10/2025 21:53] johnastebbins
+My framework shows the same timing you are seeing
+
+
+[17/10/2025 21:53] darkbasic4
+So I really don't understand how kyuz0 gets 52.90 at TG
+
+
+[17/10/2025 21:54] darkbasic4
+It's exactly 10% faster
+
+
+[17/10/2025 21:55] johnastebbins
+I thought he was using the HP Z2 Mini G1a Workstation
+
+
+[17/10/2025 21:56] johnastebbins
+Ah, I am mistaken.  Says framework right on his benchmarks page
+
+
+[17/10/2025 22:00] mushoz
+https://old.reddit.com/r/LocalLLaMA/comments/1o98f57/new_from_cerebras_reap_the_experts_why_pruning/
+
+{Embed}
+https://old.reddit.com/r/LocalLLaMA/comments/1o98f57/new_from_cerebras_reap_the_experts_why_pruning/
+From the LocalLLaMA community on Reddit: New from Cerebras: REAP th...
+Explore this post and more from the LocalLLaMA community
+https://images-ext-1.discordapp.net/external/0lNK3HjBRJJksWKBltfQIEjX-U6_J0fWPDSfHCUhRFw/https/share.redd.it/preview/post/1o98f57
+
+{Reactions}
+❤️ (2)
+
+[17/10/2025 22:00] mushoz
+VERY Interesting paper and results!
+
+
+[17/10/2025 22:01] mushoz
+They managed to prune model by up to 50% in size with minimal to no loss in accuracy on real tasks such as SWE bench
+
+
+[17/10/2025 22:01] mushoz
+Imagine running GLM 4.6 pruned to 50% on our Strix Halo. Should easily fit
+
+{Reactions}
+🔥 (2)
+
+[17/10/2025 22:01] mushoz
+(at 4 bit quant ofc)
+
+
+[17/10/2025 22:01] mushoz
+They fully opensourced the code to prune as well
+
+
+[17/10/2025 22:03] mushoz
+The nice thing is that you can prune down to any number of experts. So as long as a model is MOE, you can make it fit within our 128GB RAM budget
+
+
+[17/10/2025 22:21] darkbasic4
+Yeah but at which speed? GLM-4.5-Air is unusable...
+
+
+[17/10/2025 22:31] darkbasic4
+With the original charger it is indeed MUCH faster at prompt processing, but when I tried to benchmark a 100K context this happened
+
+{Attachments}
+https://cdn.discordapp.com/attachments/1384591615343198228/1428842894847905992/image.png?ex=68f5f364&is=68f4a1e4&hm=d2819cf237da986d48310dcb4d4d71b33a257053db66bd0842bb058013b5fc70&
+
+
+[17/10/2025 22:31] mark_91462
+Awesome! That is exactly the model I need
+
+
+[17/10/2025 22:32] mark_91462
+You need a laptop cooling stand
+
+
+[17/10/2025 22:33] darkbasic4
+I don't think it would make a difference: it happened less than two minutes after starting the benchmark...
+
+
+[17/10/2025 22:34] darkbasic4
+I wonder if this may be due to `RADEON_DPM_PERF_LEVEL_ON_AC=high`
+
+
+[17/10/2025 23:11] darkbasic4
+That was the issue: DON'T use `RADEON_DPM_PERF_LEVEL_ON_AC=high` on the HP ZBook Ultra G1A. It will overheat after 35 seconds. WIth `RADEON_DPM_PERF_LEVEL_ON_AC=auto` it successfully processed a 131K tokens file, no overheat.
+
+{Reactions}
+🔥
+
+[17/10/2025 23:19] darkbasic4
+`RADEON_DPM_PERF_LEVEL_ON_AC=auto` is MUCH slower at prompt processing, strangely it's 5% faster at token generation though:
+```
+| model                          |       size |     params | backend    | ngl | fa | mmap |            test |                  t/s |
+| ------------------------------ | ---------: | ---------: | ---------- | --: | -: | ---: | --------------: | -------------------: |
+| gpt-oss 120B MXFP4 MoE         |  59.02 GiB |   116.83 B | Vulkan     |  99 |  1 |    0 |           pp512 |        419.04 ± 9.10 |
+| gpt-oss 120B MXFP4 MoE         |  59.02 GiB |   116.83 B | Vulkan     |  99 |  1 |    0 |           tg128 |         50.10 ± 0.12 |
+```
+
+
+[18/10/2025 00:03] mushoz
+Are you sure it was overheating? Did you monitor temps as it crashed?
+
+
+[18/10/2025 01:39] primal6413
+I saw this earlier and thought the same! I don’t know enough about it to actually prune though.
+
+
+[18/10/2025 13:05] lhl
+BTW, I did some updates for my DGX Spark vs Strix Halo benchmarks I ran. With the recent llama.cpp updates Spark tg is about where you'd be, slightly outpacing Strix Halo now. It's pp is also significantly faster and notably doesn't degrade as much. Using `-ub 2048` my ROCm pp2048 results no match @arcticjoe 's but interestingly I get more tg degradation w/ context even w/ matched parameters (tried adding -b and -t to match etc) - One other interesting not is taht `-ub 2048` brought down Vulkan perf. for gpt-oss-120b. `-ub 512` is good for Vulkand AMDVLK, and `-ub 1024` is bettter for Vulkan RADV - https://github.com/lhl/strix-halo-testing/?tab=readme-ov-file#amd-strix-halo-vs-nvidia-dgx-spark
+
+{Embed}
+https://github.com/lhl/strix-halo-testing/?tab=readme-ov-file
+GitHub - lhl/strix-halo-testing
+Contribute to lhl/strix-halo-testing development by creating an account on GitHub.
+https://images-ext-1.discordapp.net/external/CzPW5y4bcE5HgIHEopZtYD4I5TxkRLHiM3MdxCyXfm8/https/opengraph.githubassets.com/a214c3a6c1a258192f78347ed10c2e194e7cf5c1d6b289683d38bd23c2879c8c/lhl/strix-halo-testing
+
+{Reactions}
+🤔 (2) 🔥 (7)
+
+[18/10/2025 14:40] technigmaai
+great 🙂 have you tried it with 128k context?
+
+
+[18/10/2025 14:41] lhl
+you should go for it
+
+{Reactions}
+👍
+
+[18/10/2025 14:46] darkbasic4
+Yes please test 128k context.
+
+
+[18/10/2025 14:49] darkbasic4
+Also please add radv results.
+
+
+[18/10/2025 16:02] mushoz
+Why is the dropoff for Strix Halo so much worse? It should be roughly identical?
+
+
+[18/10/2025 19:03] lhl
+dropoff is going to be kernel/implementation specific, the the reason for rocm is either the hipified code is worse  for strix halo's hardware, or longer context exposes weaknesses in rocblas/rocwmma or other amd libs
+
+{Reactions}
+👍
+
+[19/10/2025 01:34] noimnull
+https://fxtwitter.com/qtnx_/status/1979651871003595185
+
+{Embed}
+Q (@qtnx_)
+https://fxtwitter.com/qtnx_/status/1979651871003595185
+all this, at home, fully offline \:\)
+
+> **[Quoting](https://x.com/qtnx_/status/1979650426271387796) Q \([@qtnx_](https://x.com/qtnx_)\)**
+> ︀
+> llama\.cpp recently updated its default ui with llama\-server and now it's honestly just an amazing local first stack if you have a machine like a [@FrameworkPuter](https://x.com/FrameworkPuter) desktop, seriously recommend as a personal local LLM stack
+
+**[💬](https://x.com/intent/tweet?in_reply_to=1979651871003595185) 6 [🔁](https://x.com/intent/retweet?tweet_id=1979651871003595185) 6 [❤️](https://x.com/intent/like?tweet_id=1979651871003595185) 141 👁️ 10\.7K **
+https://images-ext-1.discordapp.net/external/XZoriDFj--y7OpLHZ6OYM8d8C4TKpLez_xklMr4PP6M/https/pbs.twimg.com/amplify_video_thumb/1979651695714967552/img/75SYa4PpLzYshcmN.jpg
+FxTwitter
+
+
+[19/10/2025 01:34] noimnull
+llamacpp new ui
+
+
+[19/10/2025 10:09] suntzu5984
+Do you have any more info on this? I’m under the impression that Framework products are made in Taiwan and SixUnited is in China.
+
+
+[19/10/2025 12:01] daywalker313
+rocm 7.10  + rocwmma
+```
+| gpt-oss 120B MXFP4 MoE         |  59.02 GiB |   116.83 B | ROCm       | 999 |    1024 |  1 |    1 |        pp128000 |        146.19 ± 0.06 |
+| gpt-oss 120B MXFP4 MoE         |  59.02 GiB |   116.83 B | ROCm       | 999 |    1024 |  1 |    1 |            tg16 |         47.69 ± 0.03 |
+```
+
+am i mistaken or is strix halo crazy fast on PP128k with the latest rocm?
+
+
+[19/10/2025 14:09] daywalker313
+okay yeah, across gpt-oss and qwen models, they all seem to get a 70-150% PP boost at large contexts with rocm 7.10.
+
+
+[19/10/2025 14:11] daywalker313
+but with rocm 7.10, larger models (glm 4.5 air or qwen3 235b or glm 4.6) fail to load (stuck at "Loading model"). is there any known workaround?
+
+
+[19/10/2025 14:31] kprasadvnsi
+Where can I find this 7.10 version?
+
+
+[19/10/2025 14:33] daywalker313
+@kprasadvnsi if you install / update the "rocm-7rc-rocwmma" toolbox from (https://github.com/kyuz0/amd-strix-halo-toolboxes), it fetches the latest 7.x.x nightly
+
+
+[19/10/2025 14:34] kprasadvnsi
+Nice, i will try this now.
+
+
+[19/10/2025 14:36] mushoz
+Disable mmap to be able to load bigger models without hanging
+
+
+[19/10/2025 14:36] mushoz
+It's a known issue, fortunately easy to fix
+
+
+[19/10/2025 14:36] daywalker313
+@Musho i tried, need to check the args again
+```
+llama-bench -m models/glm-4.5-air-ud-q6_k_xl/UD-Q6_K_XL/GLM-4.5-Air-UD-Q6_K_XL-00001-of-00003.gguf -p 2048   -n 16   -b 1024 -ub 512   -ngl 999  --mmap 1   --repetitions 2  -fa 1  -mmp 0 --progress
+```
+
+
+[19/10/2025 14:37] daywalker313
+uhm
+
+
+[19/10/2025 14:37] daywalker313
+i will retry glm with proper arguments
+
+
+[19/10/2025 14:37] mushoz
+That looks correct. Maybe it's a new bug then
+
+
+[19/10/2025 14:42] mushoz
+Wait
+
+
+[19/10/2025 14:42] mushoz
+You have --mmap 1
+
+
+[19/10/2025 14:42] mushoz
+And -mmp 0
+
+
+[19/10/2025 14:43] mushoz
+So you have conflicting parameters
+
+
+[19/10/2025 14:43] mushoz
+Not sure which one takes precedence
+
+
+[19/10/2025 14:43] mushoz
+But you should use just one and set it to 0
+
+
+[19/10/2025 14:43] mushoz
+@daywalker
+
+
+[19/10/2025 14:43] daywalker313
+yeah i just saw that
+
+
+[19/10/2025 14:43] daywalker313
+i'm rerunning now, let's see if the model loads
+
+
+[19/10/2025 14:45] daywalker313
+@Musho thanks a lot, the first took precedence
+
+
+[19/10/2025 14:45] daywalker313
+works now
+
+
+[19/10/2025 14:46] mushoz
+Perfect!
+
+
+[19/10/2025 14:47] mushoz
+Would love to see glm4.5 air benches at different depths
+
+
+[19/10/2025 14:47] mushoz
+It's a really good model and the speed is acceptable at low depths
+
+
+[19/10/2025 14:47] mushoz
+But it's just too slow when it fills up
+
+
+[19/10/2025 14:50] daywalker313
+unfortunately very bad on rocm 7.10 at pp2048 vs amdvlk:
+```
+rocm710 | glm4moe 106B.A12B Q6_K         |  94.57 GiB |   110.47 B | ROCm       | 999 |    1024 |  1 |    0 |          pp2048 |         97.23 ± 0.01 |
+amdvlk  | glm4moe 106B.A12B Q6_K         |  94.57 GiB |   110.47 B | Vulkan     | 999 |    1024 |  1 |    0 |          pp2048 |        218.16 ± 1.61 |
+```
+
+
+[19/10/2025 14:50] daywalker313
+but i'll try deeper contexts
+
+
+[19/10/2025 14:51] daywalker313
+i still have high hopes for qwen3-235b, that's my favorite model so far for non agentic tasks
+
+
+[19/10/2025 14:54] kprasadvnsi
+what gguf file you are using for the qwen3-235b ?
+
+
+[19/10/2025 14:55] daywalker313
+Qwen3-235B-A22B-Instruct-2507-UD-Q3_K_XL-00001-of-00003.gguf
+
+
+[19/10/2025 14:58] daywalker313
+but with just 50k context, as i always run qwen25coder3b in parallel for FIM autocomplete
+
+
+[19/10/2025 15:01] kprasadvnsi
+which toolbox works best for this model?
+
+
+[19/10/2025 15:02] daywalker313
+vulkan_amdvlk most likely, but i still need to benchmark rocm 7.10
+
+
+[19/10/2025 15:03] kprasadvnsi
+"as i always run qwen25coder3b in parallel for FIM autocomplete" IDK what you mean. I am new to this LLM thing. still using chat for coding.
+
+
+[19/10/2025 15:03] daywalker313
+maybe also vulkan_radv, they're close
+
+
+[19/10/2025 15:10] kprasadvnsi
+i am getting around 17 t/s  on amdvlk  for Qwen3-235B-A22B-Instruct-2507-UD-Q3_K_XL
+
+
+[19/10/2025 15:12] daywalker313
+yeah that's the right ballpark
+
+
+[19/10/2025 15:12] daywalker313
+good enough for chat and smarter than gpt5 free IMO
+
+
+[19/10/2025 15:36] mushoz
+What is your go-to for agentic use cases?
+
+
+[19/10/2025 15:36] mushoz
+I am using gpt-oss-120b with codex
+
+
+[19/10/2025 15:39] kprasadvnsi
+what kind of software you develop using this model ?
+
+
+[19/10/2025 16:22] primal6413
+I do c# ts and powershell dev normally but I’ve had good experiences with it in roocode too
+
+{Reactions}
+👍
+
+[19/10/2025 16:28] arcticjoe
+7.10 without wmma scores a bit better:
+
+{Attachments}
+https://cdn.discordapp.com/attachments/1384591615343198228/1429476312254513192/image.png?ex=68f6470f&is=68f4f58f&hm=e783dd93c9fe710de67b2d3c08a24a257875a4d34ad07e28ce1cc9261a6d8d16&
+
+
+[19/10/2025 16:30] arcticjoe
+went back to fedora 42 and havent had any crashes, so it seems like its either the latest kernel on my cachyos thats the culprit, or maybe something else arch related.
+
+
+[19/10/2025 17:34] daywalker313
+that looks like +30% PP performance, looks like a lot better. gonna try and benchmark without wmma
+
+
+==============================================================
+Exported 468 message(s)
+==============================================================

@@ -20,13 +20,7 @@ models:
     container_name: gpt-oss-server
     backend_url: http://localhost:8080/v1
     health_url: http://localhost:8080/health
-    startup_timeout: 180  # 3 minutes (120B model is slow to load)
-
-  gpt-oss-120b-rocm:
-    container_name: gpt-oss-server-rocm
-    backend_url: http://localhost:8080/v1
-    health_url: http://localhost:8080/health
-    startup_timeout: 180  # ROCm variant for 32k+ context PP boost
+    startup_timeout: 180  # 3 minutes (120B model, ROCm 7 RC - 2x faster PP)
 
   qwen3-coder-30b:
     container_name: qwen-server
@@ -56,13 +50,7 @@ models:
     container_name: gpt-oss-20b-server
     backend_url: http://localhost:8080/v1
     health_url: http://localhost:8080/health
-    startup_timeout: 60  # 1 minute (actual ~20-30 seconds)
-
-  gpt-oss-20b-rocm:
-    container_name: gpt-oss-20b-server-rocm
-    backend_url: http://localhost:8080/v1
-    health_url: http://localhost:8080/health
-    startup_timeout: 60  # ROCm variant for long-context testing
+    startup_timeout: 60  # 1 minute (ROCm 7 RC - 2x faster PP)
 
   qwen3-30b-thinking:
     container_name: qwen-thinking-server
@@ -86,13 +74,7 @@ models:
     container_name: qwen-instruct-server
     backend_url: http://localhost:8080/v1
     health_url: http://localhost:8080/health
-    startup_timeout: 60  # 1 minute (actual ~30-45 seconds)
-
-  qwen3-30b-instruct-rocm:
-    container_name: qwen-instruct-server-rocm
-    backend_url: http://localhost:8080/v1
-    health_url: http://localhost:8080/health
-    startup_timeout: 60  # ROCm variant for performance comparison
+    startup_timeout: 60  # 1 minute (ROCm 7 RC - 2x faster PP)
 
   gpt-oss-20b-neoplus:
     container_name: gpt-oss-20b-neoplus-server

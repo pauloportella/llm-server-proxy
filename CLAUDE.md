@@ -72,9 +72,10 @@ This file provides guidance to Claude Code when working with this repository.
    docker create --name your-model-server -p 8080:8080 \
      --device /dev/dri --device /dev/kfd \
      -v /mnt/ai_models:/models \
-     kyuz0/amd-strix-halo-toolboxes:vulkan-radv \
+     kyuz0/amd-strix-halo-toolboxes:rocm-7rc \
      llama-server -m /models/your-model.gguf \
-     --alias your-model -ngl 999 -c 32768 \
+     --alias your-model -ngl 999 -c 32768 -ub 2048 --no-mmap \
+     --flash-attn on \
      --host 0.0.0.0 --port 8080 --jinja
    ```
 
@@ -232,8 +233,9 @@ docker exec llm-queue-redis redis-cli -a redis_password
 ## Related Projects
 
 - **CACHYOS_SETUP.md** - Backend model configurations and Docker commands
-- **amd-strix-halo-toolboxes** - Docker images with Vulkan RADV support
+- **amd-strix-halo-toolboxes** - Docker images with ROCm 7 RC support
 - **llama.cpp** - Backend inference engine
+- **benches/radv-vs-rocm7/** - Performance benchmarks showing ROCm 2x faster PP at large contexts
 
 ## Common Tasks
 

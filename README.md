@@ -38,112 +38,118 @@ Client Request → Redis Queue → Worker Pool (2 workers) → Backend LLM → R
 The proxy manages existing containers. Create them first (stopped state is fine):
 
 ```bash
-# GPT-OSS-120B
+# GPT-OSS-120B (ROCm 7 RC - 2x faster prompt processing at large contexts)
 docker create --name gpt-oss-server -p 8080:8080 \
   --device /dev/dri --device /dev/kfd \
   -v /mnt/ai_models:/models \
-  kyuz0/amd-strix-halo-toolboxes:vulkan-radv \
+  kyuz0/amd-strix-halo-toolboxes:rocm-7rc \
   llama-server -m /models/huggingface/gpt-oss-120b-Q4_K_M/gpt-oss-120b-Q4_K_M-00001-of-00002.gguf \
-  --alias gpt-oss-120b -ngl 999 -c 65536 \
+  --alias gpt-oss-120b -ngl 999 -c 65536 -ub 2048 --no-mmap \
   --cache-type-k q4_0 --cache-type-v q4_0 \
+  --flash-attn on \
   --host 0.0.0.0 --port 8080 --jinja
 
-# Qwen3-Coder-30B
+# Qwen3-Coder-30B (ROCm 7 RC)
 docker create --name qwen-server -p 8080:8080 \
   --device /dev/dri --device /dev/kfd \
   -v /mnt/ai_models:/models \
-  kyuz0/amd-strix-halo-toolboxes:vulkan-radv \
+  kyuz0/amd-strix-halo-toolboxes:rocm-7rc \
   llama-server -m /models/huggingface/hub/models--unsloth--Qwen3-Coder-30B-A3B-Instruct-GGUF/snapshots/7ce945e58ed3f09f9cf9c33a2122d86ac979b457/Qwen3-Coder-30B-A3B-Instruct-Q4_K_M.gguf \
-  --alias qwen3-coder-30b -ngl 999 -c 262144 \
+  --alias qwen3-coder-30b -ngl 999 -c 262144 -ub 2048 --no-mmap \
   --cache-type-k q8_0 --cache-type-v q8_0 \
+  --flash-attn on \
   --host 0.0.0.0 --port 8080 --jinja
 
-# Dolphin-Mistral-24B (Q6, port 8080)
+# Dolphin-Mistral-24B (Q6, ROCm 7 RC - Note: -ub 32 prevents GPU cleanup crashes)
 docker create --name dolphin-server -p 8080:8080 \
   --device /dev/dri --device /dev/kfd \
   -v /mnt/ai_models:/models \
-  kyuz0/amd-strix-halo-toolboxes:vulkan-radv \
+  kyuz0/amd-strix-halo-toolboxes:rocm-7rc \
   llama-server -m /models/huggingface/dolphin-mistral-24b-venice/cognitivecomputations_Dolphin-Mistral-24B-Venice-Edition-Q6_K_L.gguf \
-  --alias dolphin-mistral-24b -ngl 999 -c 32768 -ub 32 -b 32 \
+  --alias dolphin-mistral-24b -ngl 999 -c 32768 -ub 32 -b 2048 --no-mmap \
+  --flash-attn on \
   --host 0.0.0.0 --port 8080 --jinja
 
-# Dolphin-Mistral-24B-Fast (Q4, port 8080)
+# Dolphin-Mistral-24B-Fast (Q4, ROCm 7 RC - Note: -ub 32 prevents GPU cleanup crashes)
 docker create --name dolphin-fast-server -p 8080:8080 \
   --device /dev/dri --device /dev/kfd \
   -v /mnt/ai_models:/models \
-  kyuz0/amd-strix-halo-toolboxes:vulkan-radv \
+  kyuz0/amd-strix-halo-toolboxes:rocm-7rc \
   llama-server -m /models/huggingface/dolphin-mistral-24b-venice/cognitivecomputations_Dolphin-Mistral-24B-Venice-Edition-Q4_K_L.gguf \
-  --alias dolphin-mistral-24b-fast -ngl 999 -c 32768 -ub 32 -b 32 \
+  --alias dolphin-mistral-24b-fast -ngl 999 -c 32768 -ub 32 -b 2048 --no-mmap \
+  --flash-attn on \
   --host 0.0.0.0 --port 8080 --jinja
 
-# LFM2-8B-A1B (Q8_0, port 8080)
+# LFM2-8B-A1B (Q8_0, ROCm 7 RC)
 docker create --name lfm2-server -p 8080:8080 \
   --device /dev/dri --device /dev/kfd \
   -v /mnt/ai_models:/models \
-  kyuz0/amd-strix-halo-toolboxes:vulkan-radv \
+  kyuz0/amd-strix-halo-toolboxes:rocm-7rc \
   llama-server -m /models/huggingface/lfm2-8b-a1b/LFM2-8B-A1B-Q8_0.gguf \
-  --alias lfm2-8b -ngl 999 -c 32768 -b 4096 -ub 1024 \
+  --alias lfm2-8b -ngl 999 -c 32768 -b 4096 -ub 2048 --no-mmap \
   --cache-type-k f16 --cache-type-v f16 \
-  --mlock --host 0.0.0.0 --port 8080 --jinja
+  --flash-attn on --mlock \
+  --host 0.0.0.0 --port 8080 --jinja
 
-# GPT-OSS-20B (Q8_0, port 8080)
+# GPT-OSS-20B (Q8_0, ROCm 7 RC)
 docker create --name gpt-oss-20b-server -p 8080:8080 \
   --device /dev/dri --device /dev/kfd \
   -v /mnt/ai_models:/models \
-  kyuz0/amd-strix-halo-toolboxes:vulkan-radv \
+  kyuz0/amd-strix-halo-toolboxes:rocm-7rc \
   llama-server -m /models/huggingface/gpt-oss-20b/gpt-oss-20b-Q8_0.gguf \
-  --alias gpt-oss-20b -ngl 999 -c 131072 -b 2048 -ub 2048 \
+  --alias gpt-oss-20b -ngl 999 -c 131072 -b 2048 -ub 2048 --no-mmap \
   --cache-type-k f16 --cache-type-v f16 \
   --flash-attn on \
   --host 0.0.0.0 --port 8080 --jinja
 
-# Qwen3-30B-A3B-Thinking-2507 (Q8_0, port 8080)
+# Qwen3-30B-A3B-Thinking-2507 (Q8_0, ROCm 7 RC)
 docker create --name qwen-thinking-server -p 8080:8080 \
   --device /dev/dri --device /dev/kfd \
   -v /mnt/ai_models:/models \
-  kyuz0/amd-strix-halo-toolboxes:vulkan-radv \
+  kyuz0/amd-strix-halo-toolboxes:rocm-7rc \
   llama-server -m /models/huggingface/qwen3-30b-thinking/Qwen3-30B-A3B-Thinking-2507-Q8_0.gguf \
-  --alias qwen3-30b-thinking -ngl 999 -c 131072 -b 2048 -ub 2048 \
-  --reasoning-format deepseek \
+  --alias qwen3-30b-thinking -ngl 999 -c 131072 -b 2048 -ub 2048 --no-mmap \
+  --flash-attn on --reasoning-format deepseek \
   --host 0.0.0.0 --port 8080 --jinja
 
-# AI21-Jamba-Reasoning-3B (F16, port 8080)
+# AI21-Jamba-Reasoning-3B (F16, ROCm 7 RC)
 docker create --name jamba-reasoning-server -p 8080:8080 \
   --device /dev/dri --device /dev/kfd \
   -v /mnt/ai_models:/models \
-  kyuz0/amd-strix-halo-toolboxes:vulkan-radv \
+  kyuz0/amd-strix-halo-toolboxes:rocm-7rc \
   llama-server -m /models/huggingface/jamba-reasoning-3b/jamba-reasoning-3b-F16.gguf \
-  --alias jamba-reasoning-3b -ngl 999 -c 128000 \
+  --alias jamba-reasoning-3b -ngl 999 -c 128000 -ub 2048 --no-mmap \
   --flash-attn on \
   --host 0.0.0.0 --port 8080 --jinja
 
-# Qwen3-30B-A3B-Instruct-2507 (Q8_0, port 8080)
+# Qwen3-30B-A3B-Instruct-2507 (Q8_0, ROCm 7 RC)
 docker create --name qwen-instruct-server -p 8080:8080 \
   --device /dev/dri --device /dev/kfd \
   -v /mnt/ai_models:/models \
-  kyuz0/amd-strix-halo-toolboxes:vulkan-radv \
+  kyuz0/amd-strix-halo-toolboxes:rocm-7rc \
   llama-server -m /models/huggingface/qwen3-30b-instruct/Qwen3-30B-A3B-Instruct-2507-Q8_0.gguf \
-  --alias qwen3-30b-instruct -ngl 999 -c 131072 -b 2048 -ub 2048 \
+  --alias qwen3-30b-instruct -ngl 999 -c 131072 -b 2048 -ub 2048 --no-mmap \
+  --flash-attn on \
   --host 0.0.0.0 --port 8080 --jinja
 
-# GPT-OSS-20B-NEOPlus-Uncensored (Q8_0 Imatrix, port 8080)
+# GPT-OSS-20B-NEOPlus-Uncensored (Q8_0 Imatrix, ROCm 7 RC)
 docker create --name gpt-oss-20b-neoplus-server -p 8080:8080 \
   --device /dev/dri --device /dev/kfd \
   -v /mnt/ai_models:/models \
-  kyuz0/amd-strix-halo-toolboxes:vulkan-radv \
+  kyuz0/amd-strix-halo-toolboxes:rocm-7rc \
   llama-server -m /models/huggingface/gpt-oss-20b-neoplus/OpenAI-20B-NEOPlus-Uncensored-Q8_0.gguf \
-  --alias gpt-oss-20b-neoplus -ngl 999 -c 131072 -b 2048 -ub 2048 \
+  --alias gpt-oss-20b-neoplus -ngl 999 -c 131072 -b 2048 -ub 2048 --no-mmap \
   --cache-type-k f16 --cache-type-v f16 \
   --flash-attn on \
   --host 0.0.0.0 --port 8080 --jinja
 
-# GPT-OSS-20B-NEO-CODE-DI-Uncensored (Q8_0 DI-Matrix, port 8080)
+# GPT-OSS-20B-NEO-CODE-DI-Uncensored (Q8_0 DI-Matrix, ROCm 7 RC)
 docker create --name gpt-oss-20b-code-di-server -p 8080:8080 \
   --device /dev/dri --device /dev/kfd \
   -v /mnt/ai_models:/models \
-  kyuz0/amd-strix-halo-toolboxes:vulkan-radv \
+  kyuz0/amd-strix-halo-toolboxes:rocm-7rc \
   llama-server -m /models/huggingface/gpt-oss-20b-code-di/OpenAI-20B-NEO-CODE-DI-Uncensored-Q8_0.gguf \
-  --alias gpt-oss-20b-code-di -ngl 999 -c 131072 -b 2048 -ub 2048 \
+  --alias gpt-oss-20b-code-di -ngl 999 -c 131072 -b 2048 -ub 2048 --no-mmap \
   --cache-type-k f16 --cache-type-v f16 \
   --flash-attn on \
   --host 0.0.0.0 --port 8080 --jinja
