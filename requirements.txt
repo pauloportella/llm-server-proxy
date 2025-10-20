@@ -6,7 +6,10 @@ fastapi==0.119.0
 uvicorn[standard]==0.37.0
 
 # HTTP client
-aiohttp==3.13.0
+aiohttp==3.13.1
+
+# LLM proxy/routing library for standardized OpenAI-compatible API handling
+litellm==1.78.5
 
 # YAML config
 pyyaml==6.0.3

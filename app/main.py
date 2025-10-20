@@ -5,6 +5,7 @@ import time
 import logging
 import os
 import uuid
+import json
 from typing import Optional
 from contextlib import asynccontextmanager
 from collections import defaultdict
@@ -12,6 +13,8 @@ from datetime import datetime
 
 import aiohttp
 import docker
+import litellm
+from litellm import acompletion
 from fastapi import FastAPI, HTTPException, Request
 from fastapi.responses import JSONResponse, StreamingResponse
 
@@ -170,52 +173,82 @@ async def switch_model(target_model: str) -> None:
 
 
 async def forward_request(backend_url: str, request_data: dict) -> dict:
-    """Forward request to backend LLM server with cancellation support."""
-    session = None
+    """Forward request to backend LLM server using LiteLLM with cancellation support."""
     try:
-        session = aiohttp.ClientSession()
-        async with session.post(
-            f"{backend_url}/chat/completions",
-            json=request_data,
-            timeout=aiohttp.ClientTimeout(total=config.request_timeout)
-        ) as response:
-            if response.status != 200:
-                error_text = await response.text()
-                raise HTTPException(
-                    status_code=response.status,
-                    detail=f"Backend error: {error_text}"
-                )
-            return await response.json()
+        # Extract model name and add openai/ prefix for LiteLLM routing
+        model = request_data.get("model", "unknown")
+        if not model.startswith("openai/"):
+            model = f"openai/{model}"
+
+        # Use LiteLLM for standardized OpenAI-compatible forwarding
+        response = await acompletion(
+            model=model,
+            messages=request_data.get("messages", []),
+            api_base=backend_url,
+            api_key="dummy-key",  # Required by LiteLLM but not validated by llama-server
+            stream=False,
+            timeout=config.request_timeout,
+            # Pass through all other OpenAI parameters
+            **{k: v for k, v in request_data.items()
+               if k not in ["model", "messages", "stream"]}
+        )
+
+        # Convert ModelResponse to dict for consistency
+        return response.model_dump() if hasattr(response, 'model_dump') else dict(response)
+
     except asyncio.CancelledError:
-        # Immediately close session on cancellation to abort HTTP request
-        if session and not session.closed:
-            await session.close()
+        logger.info("Request forwarding cancelled")
         raise
-    finally:
-        # Clean up session
-        if session and not session.closed:
-            await session.close()
+    except Exception as e:
+        logger.error(f"LiteLLM forward error: {e}")
+        # Re-raise as HTTPException for FastAPI
+        if isinstance(e, HTTPException):
+            raise
+        raise HTTPException(
+            status_code=500,
+            detail=f"Backend error: {str(e)}"
+        )
 
 
 async def stream_response(backend_url: str, request_data: dict):
-    """Stream response from backend."""
-    async with aiohttp.ClientSession() as session:
-        async with session.post(
-            f"{backend_url}/chat/completions",
-            json=request_data,
-            timeout=aiohttp.ClientTimeout(total=config.request_timeout)
-        ) as response:
-            if response.status != 200:
-                error_text = await response.text()
-                raise HTTPException(
-                    status_code=response.status,
-                    detail=f"Backend error: {error_text}"
-                )
+    """Stream response from backend using LiteLLM."""
+    try:
+        # Extract model name and add openai/ prefix for LiteLLM routing
+        model = request_data.get("model", "unknown")
+        if not model.startswith("openai/"):
+            model = f"openai/{model}"
 
-            # Stream the response chunks
-            async for chunk in response.content.iter_any():
-                if chunk:
-                    yield chunk
+        # Use LiteLLM for streaming
+        response = await acompletion(
+            model=model,
+            messages=request_data.get("messages", []),
+            api_base=backend_url,
+            api_key="dummy-key",
+            stream=True,
+            stream_timeout=config.request_timeout,
+            # Pass through all other OpenAI parameters
+            **{k: v for k, v in request_data.items()
+               if k not in ["model", "messages", "stream"]}
+        )
+
+        # Stream chunks in SSE format
+        async for chunk in response:
+            if chunk:
+                # LiteLLM returns ModelResponse chunks, convert to JSON bytes
+                chunk_dict = chunk.model_dump() if hasattr(chunk, 'model_dump') else dict(chunk)
+                # Format as SSE event
+                yield f"data: {json.dumps(chunk_dict)}\n\n".encode('utf-8')
+
+        # Send completion signal
+        yield b"data: [DONE]\n\n"
+
+    except asyncio.CancelledError:
+        logger.info("Streaming cancelled")
+        raise
+    except Exception as e:
+        logger.error(f"LiteLLM streaming error: {e}")
+        error_data = {"error": {"message": str(e), "type": "server_error"}}
+        yield f"data: {json.dumps(error_data)}\n\n".encode('utf-8')
 
 
 async def queue_worker(worker_id: int = 0):
@@ -396,8 +429,8 @@ async def lifespan(app: FastAPI):
 
 app = FastAPI(
     title="LLM Queue Proxy",
-    description="OpenAI-compatible proxy with automatic model swapping and Redis queue",
-    version="2.0.0",
+    description="OpenAI-compatible proxy with automatic model swapping, Redis queue, and LiteLLM integration",
+    version="2.1.0-litellm",
     lifespan=lifespan
 )
 
