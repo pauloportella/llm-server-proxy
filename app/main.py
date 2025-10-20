@@ -36,13 +36,14 @@ logger = logging.getLogger(__name__)
 
 # Configure Langfuse observability (uses env vars: LANGFUSE_SECRET_KEY, LANGFUSE_PUBLIC_KEY, LANGFUSE_HOST)
 # Only enables if all environment variables are set
+# Using langfuse_otel for Langfuse SDK v3.x compatibility (LiteLLM 1.78.5)
 if all([
     os.getenv("LANGFUSE_SECRET_KEY"),
     os.getenv("LANGFUSE_PUBLIC_KEY"),
     os.getenv("LANGFUSE_HOST")
 ]):
-    litellm.callbacks = ["langfuse"]
-    logger.info("Langfuse observability enabled")
+    litellm.callbacks = ["langfuse_otel"]
+    logger.info("Langfuse observability enabled (OTEL integration)")
 else:
     logger.info("Langfuse observability disabled (missing environment variables)")
 
