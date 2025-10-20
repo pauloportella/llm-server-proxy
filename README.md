@@ -154,6 +154,57 @@ docker create --name gpt-oss-20b-code-di-server -p 8080:8080 \
   --flash-attn on \
   --host 0.0.0.0 --port 8080 --jinja
 
+# Qwen3-Almost-Human-X3-6B (Q5_K_M, ROCm 7 RC)
+docker create --name qwen3-6b-server -p 8080:8080 \
+  --device /dev/dri --device /dev/kfd \
+  -v /mnt/ai_models:/models \
+  kyuz0/amd-strix-halo-toolboxes:rocm-7rc \
+  llama-server -m /models/huggingface/qwen3-almost-human-x3-6b/qwen3-almost-human-x3-1839-6b-q5_k_m.gguf \
+  --alias qwen3-6b-almost-human -ngl 999 -c 32768 -b 2048 -ub 2048 --no-mmap \
+  --cache-type-k q8_0 --cache-type-v q8_0 \
+  --flash-attn on \
+  --host 0.0.0.0 --port 8080 --jinja
+
+# LFM2-1.2B-Tool (Q8_0, ROCm 7 RC - Tool-calling specialist)
+docker create --name lfm2-1.2b-tool-server -p 8080:8080 \
+  --device /dev/dri --device /dev/kfd \
+  -v /mnt/ai_models:/models \
+  kyuz0/amd-strix-halo-toolboxes:rocm-7rc \
+  llama-server -m /models/huggingface/lfm2-1.2b-tool/LFM2-1.2B-Tool-Q8_0.gguf \
+  --alias lfm2-1.2b-tool -ngl 999 -c 32768 -b 4096 -ub 2048 --no-mmap \
+  --cache-type-k f16 --cache-type-v f16 \
+  --flash-attn on --mlock \
+  --host 0.0.0.0 --port 8080 --jinja
+
+# LFM2-1.2B-RAG (Q8_0, ROCm 7 RC - RAG specialist, temperature=0.0 recommended)
+docker create --name lfm2-1.2b-rag-server -p 8080:8080 \
+  --device /dev/dri --device /dev/kfd \
+  -v /mnt/ai_models:/models \
+  kyuz0/amd-strix-halo-toolboxes:rocm-7rc \
+  llama-server -m /models/huggingface/lfm2-1.2b-rag/LFM2-1.2B-RAG-Q8_0.gguf \
+  --alias lfm2-1.2b-rag -ngl 999 -c 32768 -b 4096 -ub 2048 --no-mmap \
+  --cache-type-k f16 --cache-type-v f16 \
+  --flash-attn on --mlock \
+  --host 0.0.0.0 --port 8080 --jinja
+
+# LFM2-1.2B-Extract (Q8_0, ROCm 7 RC - Information extraction, JSON/XML output)
+docker create --name lfm2-1.2b-extract-server -p 8080:8080 \
+  --device /dev/dri --device /dev/kfd \
+  -v /mnt/ai_models:/models \
+  kyuz0/amd-strix-halo-toolboxes:rocm-7rc \
+  llama-server -m /models/huggingface/lfm2-1.2b-extract/LFM2-1.2B-Extract-Q8_0.gguf \
+  --alias lfm2-1.2b-extract -ngl 999 -c 32768 -b 4096 -ub 2048 --no-mmap \
+  --cache-type-k f16 --cache-type-v f16 \
+  --flash-attn on --mlock \
+  --host 0.0.0.0 --port 8080 --jinja
+
+# TODO: LFM2-VL-1.6B Vision Model (NOT YET CONFIGURED)
+# Downloaded: /mnt/ai_models/huggingface/lfm2-vl-1.6b/LFM2-VL-1.6B-Q8_0.gguf (1.16GB)
+# Backend: kyuz0/amd-strix-halo-toolboxes:vulkan-radv (NOT rocm-7rc - vision needs Vulkan)
+# Key differences: Single-file model (NO --mmproj needed), 32K context, uses libmtmd
+# Proxy limitation: Vision support NOT YET IMPLEMENTED - requires API updates for image input
+# See research output above for full configuration when ready to implement
+
 # Huihui-Qwen3-VL-30B (Q8_0, Vision-Language, port 8080) - EXPERIMENTAL
 # ⚠️ WARNING: Vision support NOT YET IMPLEMENTED in proxy
 docker create --name huihui-qwen3-vl-server -p 8080:8080 \
@@ -314,6 +365,30 @@ Response:
       "object": "model",
       "created": 1697000000,
       "owned_by": "local"
+    },
+    {
+      "id": "qwen3-6b-almost-human",
+      "object": "model",
+      "created": 1697000000,
+      "owned_by": "local"
+    },
+    {
+      "id": "lfm2-1.2b-tool",
+      "object": "model",
+      "created": 1697000000,
+      "owned_by": "local"
+    },
+    {
+      "id": "lfm2-1.2b-rag",
+      "object": "model",
+      "created": 1697000000,
+      "owned_by": "local"
+    },
+    {
+      "id": "lfm2-1.2b-extract",
+      "object": "model",
+      "created": 1697000000,
+      "owned_by": "local"
     }
   ]
 }
@@ -406,7 +481,7 @@ Response:
 
 Use the OpenAI node with:
 - **Base URL:** `http://100.78.198.217:8888/v1`
-- **Model:** Choose from dropdown (gpt-oss-120b, gpt-oss-20b, gpt-oss-20b-neoplus, gpt-oss-20b-code-di, qwen3-coder-30b, qwen3-30b-thinking, qwen3-30b-instruct, dolphin-mistral-24b, dolphin-mistral-24b-fast, lfm2-8b, jamba-reasoning-3b, huihui-qwen3-vl-30b*)
+- **Model:** Choose from dropdown (gpt-oss-120b, gpt-oss-20b, gpt-oss-20b-neoplus, gpt-oss-20b-code-di, qwen3-coder-30b, qwen3-30b-thinking, qwen3-30b-instruct, qwen3-6b-almost-human, dolphin-mistral-24b, dolphin-mistral-24b-fast, lfm2-8b, jamba-reasoning-3b, huihui-qwen3-vl-30b*)
 
 *Note: huihui-qwen3-vl-30b is a vision model - image support not yet implemented in proxy
 
@@ -471,9 +546,13 @@ print(response.choices[0].message.content)
 - Qwen3-30B-A3B-Instruct (Q8_0, 32.5GB, general): ~30-45s
 - GPT-OSS-20B-NEOPlus-Uncensored (Q8_0, 22.1GB, uncensored): ~20-30s
 - GPT-OSS-20B-NEO-CODE-DI-Uncensored (Q8_0, 22.1GB, code-focused): ~20-30s
+- Qwen3-Almost-Human-X3-6B (Q5_K_M, 4.0GB): ~20-40s
 - GPT-OSS-20B (Q8_0, 12.1GB, 128K context): ~20-30s
 - AI21-Jamba-Reasoning-3B (F16, 6.4GB): ~5-10s
 - LFM2-8B-A1B (Q8_0, 8.87GB): ~4-6s
+- LFM2-1.2B-Tool (Q8_0, 1.2GB, tool-calling): ~2-5s
+- LFM2-1.2B-RAG (Q8_0, 1.2GB, RAG specialist): ~2-5s
+- LFM2-1.2B-Extract (Q8_0, 1.2GB, extraction): ~2-5s
 
 **Recommendations:**
 - Use same model for consecutive requests to avoid swapping

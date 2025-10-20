@@ -36,6 +36,10 @@ CONTAINERS=(
   "qwen-instruct-server"
   "gpt-oss-20b-neoplus-server"
   "gpt-oss-20b-code-di-server"
+  "qwen3-6b-server"
+  "lfm2-1.2b-tool-server"
+  "lfm2-1.2b-rag-server"
+  "lfm2-1.2b-extract-server"
 )
 
 for container in "${CONTAINERS[@]}"; do
@@ -191,6 +195,58 @@ docker create --name gpt-oss-20b-code-di-server -p 8080:8080 \
   --host 0.0.0.0 --port 8080 --jinja > /dev/null
 echo -e "${GREEN}✓${NC}"
 
+# Qwen3-Almost-Human-X3-6B (ROCm 7 RC)
+echo -n "  Creating qwen3-6b-server... "
+docker create --name qwen3-6b-server -p 8080:8080 \
+  --device /dev/dri --device /dev/kfd \
+  -v "${MODEL_MOUNT}":/models \
+  "${IMAGE}" \
+  llama-server -m /models/huggingface/qwen3-almost-human-x3-6b/qwen3-almost-human-x3-1839-6b-q5_k_m.gguf \
+  --alias qwen3-6b-almost-human -ngl 999 -c 32768 -b 2048 -ub 2048 --no-mmap \
+  --cache-type-k q8_0 --cache-type-v q8_0 \
+  --flash-attn on \
+  --host 0.0.0.0 --port 8080 --jinja > /dev/null
+echo -e "${GREEN}✓${NC}"
+
+# LFM2-1.2B-Tool (ROCm 7 RC)
+echo -n "  Creating lfm2-1.2b-tool-server... "
+docker create --name lfm2-1.2b-tool-server -p 8080:8080 \
+  --device /dev/dri --device /dev/kfd \
+  -v "${MODEL_MOUNT}":/models \
+  "${IMAGE}" \
+  llama-server -m /models/huggingface/lfm2-1.2b-tool/LFM2-1.2B-Tool-Q8_0.gguf \
+  --alias lfm2-1.2b-tool -ngl 999 -c 32768 -b 4096 -ub 2048 --no-mmap \
+  --cache-type-k f16 --cache-type-v f16 \
+  --flash-attn on --mlock \
+  --host 0.0.0.0 --port 8080 --jinja > /dev/null
+echo -e "${GREEN}✓${NC}"
+
+# LFM2-1.2B-RAG (ROCm 7 RC)
+echo -n "  Creating lfm2-1.2b-rag-server... "
+docker create --name lfm2-1.2b-rag-server -p 8080:8080 \
+  --device /dev/dri --device /dev/kfd \
+  -v "${MODEL_MOUNT}":/models \
+  "${IMAGE}" \
+  llama-server -m /models/huggingface/lfm2-1.2b-rag/LFM2-1.2B-RAG-Q8_0.gguf \
+  --alias lfm2-1.2b-rag -ngl 999 -c 32768 -b 4096 -ub 2048 --no-mmap \
+  --cache-type-k f16 --cache-type-v f16 \
+  --flash-attn on --mlock \
+  --host 0.0.0.0 --port 8080 --jinja > /dev/null
+echo -e "${GREEN}✓${NC}"
+
+# LFM2-1.2B-Extract (ROCm 7 RC)
+echo -n "  Creating lfm2-1.2b-extract-server... "
+docker create --name lfm2-1.2b-extract-server -p 8080:8080 \
+  --device /dev/dri --device /dev/kfd \
+  -v "${MODEL_MOUNT}":/models \
+  "${IMAGE}" \
+  llama-server -m /models/huggingface/lfm2-1.2b-extract/LFM2-1.2B-Extract-Q8_0.gguf \
+  --alias lfm2-1.2b-extract -ngl 999 -c 32768 -b 4096 -ub 2048 --no-mmap \
+  --cache-type-k f16 --cache-type-v f16 \
+  --flash-attn on --mlock \
+  --host 0.0.0.0 --port 8080 --jinja > /dev/null
+echo -e "${GREEN}✓${NC}"
+
 CONTAINERS=(
   "gpt-oss-server"
   "qwen-server"
@@ -203,6 +259,10 @@ CONTAINERS=(
   "qwen-instruct-server"
   "gpt-oss-20b-neoplus-server"
   "gpt-oss-20b-code-di-server"
+  "qwen3-6b-server"
+  "lfm2-1.2b-tool-server"
+  "lfm2-1.2b-rag-server"
+  "lfm2-1.2b-extract-server"
 )
 
 echo ""
@@ -212,7 +272,7 @@ echo -e "${BLUE}========================================${NC}"
 echo ""
 echo "Summary:"
 echo "  • Backend: ROCm 7 RC (${IMAGE})"
-echo "  • Containers created: 11 (all ROCm 7 RC)"
+echo "  • Containers created: 15 (all ROCm 7 RC)"
 echo "  • Model mount: ${MODEL_MOUNT}"
 echo ""
 echo "ROCm 7 RC Benefits:"

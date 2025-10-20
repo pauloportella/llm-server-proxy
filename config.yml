@@ -87,3 +87,27 @@ models:
     backend_url: http://localhost:8080/v1
     health_url: http://localhost:8080/health
     startup_timeout: 60  # 1 minute (actual ~20-30 seconds, code-focused)
+
+  qwen3-6b-almost-human:
+    container_name: qwen3-6b-server
+    backend_url: http://localhost:8080/v1
+    health_url: http://localhost:8080/health
+    startup_timeout: 60  # 1 minute (actual ~20-40 seconds)
+
+  lfm2-1.2b-tool:
+    container_name: lfm2-1.2b-tool-server
+    backend_url: http://localhost:8080/v1
+    health_url: http://localhost:8080/health
+    startup_timeout: 30  # 30 seconds (actual ~2-5 seconds)
+
+  lfm2-1.2b-rag:
+    container_name: lfm2-1.2b-rag-server
+    backend_url: http://localhost:8080/v1
+    health_url: http://localhost:8080/health
+    startup_timeout: 30  # 30 seconds (actual ~2-5 seconds, RAG model)
+
+  lfm2-1.2b-extract:
+    container_name: lfm2-1.2b-extract-server
+    backend_url: http://localhost:8080/v1
+    health_url: http://localhost:8080/health
+    startup_timeout: 30  # 30 seconds (actual ~2-5 seconds, extraction model)

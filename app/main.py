@@ -413,6 +413,9 @@ async def list_models():
             owned_by="local"
         ))
 
+    # Sort models alphabetically by id
+    models.sort(key=lambda m: m.id)
+
     return ModelListResponse(data=models)
 
 
