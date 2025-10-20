@@ -26,14 +26,17 @@ echo -e "${YELLOW}[2/3]${NC} Stopping and removing existing model containers..."
 
 CONTAINERS=(
   "gpt-oss-server"
+  "gpt-oss-server-rocm"
   "qwen-server"
   "dolphin-server"
   "dolphin-fast-server"
   "lfm2-server"
   "gpt-oss-20b-server"
+  "gpt-oss-20b-server-rocm"
   "qwen-thinking-server"
   "jamba-reasoning-server"
   "qwen-instruct-server"
+  "qwen-instruct-server-rocm"
   "gpt-oss-20b-neoplus-server"
   "gpt-oss-20b-code-di-server"
 )
@@ -53,15 +56,29 @@ echo ""
 echo -e "${YELLOW}[3/3]${NC} Creating new model containers..."
 echo ""
 
-# GPT-OSS-120B
+# GPT-OSS-120B (Vulkan RADV - best for token generation)
 echo -n "  Creating gpt-oss-server... "
 docker create --name gpt-oss-server -p 8080:8080 \
   --device /dev/dri --device /dev/kfd \
   -v "${MODEL_MOUNT}":/models \
   "${IMAGE}" \
   llama-server -m /models/huggingface/gpt-oss-120b-Q4_K_M/gpt-oss-120b-Q4_K_M-00001-of-00002.gguf \
-  --alias gpt-oss-120b -ngl 999 -c 65536 \
+  --alias gpt-oss-120b -ngl 999 -c 65536 -ub 1024 \
   --cache-type-k q4_0 --cache-type-v q4_0 \
+  --flash-attn on \
+  --host 0.0.0.0 --port 8080 --jinja > /dev/null
+echo -e "${GREEN}✓${NC}"
+
+# GPT-OSS-120B ROCm (best for 32k+ context prompt processing)
+echo -n "  Creating gpt-oss-server-rocm... "
+docker create --name gpt-oss-server-rocm -p 8080:8080 \
+  --device /dev/dri --device /dev/kfd \
+  -v "${MODEL_MOUNT}":/models \
+  kyuz0/amd-strix-halo-toolboxes:rocm-7rc \
+  llama-server -m /models/huggingface/gpt-oss-120b-Q4_K_M/gpt-oss-120b-Q4_K_M-00001-of-00002.gguf \
+  --alias gpt-oss-120b-rocm -ngl 999 -c 65536 -ub 2048 --no-mmap \
+  --cache-type-k q4_0 --cache-type-v q4_0 \
+  --flash-attn on \
   --host 0.0.0.0 --port 8080 --jinja > /dev/null
 echo -e "${GREEN}✓${NC}"
 
@@ -72,30 +89,33 @@ docker create --name qwen-server -p 8080:8080 \
   -v "${MODEL_MOUNT}":/models \
   "${IMAGE}" \
   llama-server -m /models/huggingface/hub/models--unsloth--Qwen3-Coder-30B-A3B-Instruct-GGUF/snapshots/7ce945e58ed3f09f9cf9c33a2122d86ac979b457/Qwen3-Coder-30B-A3B-Instruct-Q4_K_M.gguf \
-  --alias qwen3-coder-30b -ngl 999 -c 262144 \
+  --alias qwen3-coder-30b -ngl 999 -c 262144 -ub 1024 \
   --cache-type-k q8_0 --cache-type-v q8_0 \
+  --flash-attn on \
   --host 0.0.0.0 --port 8080 --jinja > /dev/null
 echo -e "${GREEN}✓${NC}"
 
-# Dolphin-Mistral-24B (Q6)
+# Dolphin-Mistral-24B (Q6) - Note: -ub 32 prevents GPU cleanup crashes
 echo -n "  Creating dolphin-server... "
 docker create --name dolphin-server -p 8080:8080 \
   --device /dev/dri --device /dev/kfd \
   -v "${MODEL_MOUNT}":/models \
   "${IMAGE}" \
   llama-server -m /models/huggingface/dolphin-mistral-24b-venice/cognitivecomputations_Dolphin-Mistral-24B-Venice-Edition-Q6_K_L.gguf \
-  --alias dolphin-mistral-24b -ngl 999 -c 32768 -ub 32 -b 32 \
+  --alias dolphin-mistral-24b -ngl 999 -c 32768 -ub 32 -b 2048 \
+  --flash-attn on \
   --host 0.0.0.0 --port 8080 --jinja > /dev/null
 echo -e "${GREEN}✓${NC}"
 
-# Dolphin-Mistral-24B-Fast (Q4)
+# Dolphin-Mistral-24B-Fast (Q4) - Note: -ub 32 prevents GPU cleanup crashes
 echo -n "  Creating dolphin-fast-server... "
 docker create --name dolphin-fast-server -p 8080:8080 \
   --device /dev/dri --device /dev/kfd \
   -v "${MODEL_MOUNT}":/models \
   "${IMAGE}" \
   llama-server -m /models/huggingface/dolphin-mistral-24b-venice/cognitivecomputations_Dolphin-Mistral-24B-Venice-Edition-Q4_K_L.gguf \
-  --alias dolphin-mistral-24b-fast -ngl 999 -c 32768 -ub 32 -b 32 \
+  --alias dolphin-mistral-24b-fast -ngl 999 -c 32768 -ub 32 -b 2048 \
+  --flash-attn on \
   --host 0.0.0.0 --port 8080 --jinja > /dev/null
 echo -e "${GREEN}✓${NC}"
 
@@ -108,17 +128,31 @@ docker create --name lfm2-server -p 8080:8080 \
   llama-server -m /models/huggingface/lfm2-8b-a1b/LFM2-8B-A1B-Q8_0.gguf \
   --alias lfm2-8b -ngl 999 -c 32768 -b 4096 -ub 1024 \
   --cache-type-k f16 --cache-type-v f16 \
-  --mlock --host 0.0.0.0 --port 8080 --jinja > /dev/null
+  --flash-attn on --mlock \
+  --host 0.0.0.0 --port 8080 --jinja > /dev/null
 echo -e "${GREEN}✓${NC}"
 
-# GPT-OSS-20B
+# GPT-OSS-20B (Vulkan RADV)
 echo -n "  Creating gpt-oss-20b-server... "
 docker create --name gpt-oss-20b-server -p 8080:8080 \
   --device /dev/dri --device /dev/kfd \
   -v "${MODEL_MOUNT}":/models \
   "${IMAGE}" \
   llama-server -m /models/huggingface/gpt-oss-20b/gpt-oss-20b-Q8_0.gguf \
-  --alias gpt-oss-20b -ngl 999 -c 131072 -b 2048 -ub 2048 \
+  --alias gpt-oss-20b -ngl 999 -c 131072 -b 2048 -ub 1024 \
+  --cache-type-k f16 --cache-type-v f16 \
+  --flash-attn on \
+  --host 0.0.0.0 --port 8080 --jinja > /dev/null
+echo -e "${GREEN}✓${NC}"
+
+# GPT-OSS-20B ROCm (for long context)
+echo -n "  Creating gpt-oss-20b-server-rocm... "
+docker create --name gpt-oss-20b-server-rocm -p 8080:8080 \
+  --device /dev/dri --device /dev/kfd \
+  -v "${MODEL_MOUNT}":/models \
+  kyuz0/amd-strix-halo-toolboxes:rocm-7rc \
+  llama-server -m /models/huggingface/gpt-oss-20b/gpt-oss-20b-Q8_0.gguf \
+  --alias gpt-oss-20b-rocm -ngl 999 -c 131072 -b 2048 -ub 2048 --no-mmap \
   --cache-type-k f16 --cache-type-v f16 \
   --flash-attn on \
   --host 0.0.0.0 --port 8080 --jinja > /dev/null
@@ -131,8 +165,8 @@ docker create --name qwen-thinking-server -p 8080:8080 \
   -v "${MODEL_MOUNT}":/models \
   "${IMAGE}" \
   llama-server -m /models/huggingface/qwen3-30b-thinking/Qwen3-30B-A3B-Thinking-2507-Q8_0.gguf \
-  --alias qwen3-30b-thinking -ngl 999 -c 131072 -b 2048 -ub 2048 \
-  --reasoning-format deepseek \
+  --alias qwen3-30b-thinking -ngl 999 -c 131072 -b 2048 -ub 1024 \
+  --flash-attn on --reasoning-format deepseek \
   --host 0.0.0.0 --port 8080 --jinja > /dev/null
 echo -e "${GREEN}✓${NC}"
 
@@ -148,14 +182,27 @@ docker create --name jamba-reasoning-server -p 8080:8080 \
   --host 0.0.0.0 --port 8080 --jinja > /dev/null
 echo -e "${GREEN}✓${NC}"
 
-# Qwen3-30B-A3B-Instruct
+# Qwen3-30B-A3B-Instruct (Vulkan RADV)
 echo -n "  Creating qwen-instruct-server... "
 docker create --name qwen-instruct-server -p 8080:8080 \
   --device /dev/dri --device /dev/kfd \
   -v "${MODEL_MOUNT}":/models \
   "${IMAGE}" \
   llama-server -m /models/huggingface/qwen3-30b-instruct/Qwen3-30B-A3B-Instruct-2507-Q8_0.gguf \
-  --alias qwen3-30b-instruct -ngl 999 -c 131072 -b 2048 -ub 2048 \
+  --alias qwen3-30b-instruct -ngl 999 -c 131072 -b 2048 -ub 1024 \
+  --flash-attn on \
+  --host 0.0.0.0 --port 8080 --jinja > /dev/null
+echo -e "${GREEN}✓${NC}"
+
+# Qwen3-30B-A3B-Instruct ROCm (for comparison testing)
+echo -n "  Creating qwen-instruct-server-rocm... "
+docker create --name qwen-instruct-server-rocm -p 8080:8080 \
+  --device /dev/dri --device /dev/kfd \
+  -v "${MODEL_MOUNT}":/models \
+  kyuz0/amd-strix-halo-toolboxes:rocm-7rc \
+  llama-server -m /models/huggingface/qwen3-30b-instruct/Qwen3-30B-A3B-Instruct-2507-Q8_0.gguf \
+  --alias qwen3-30b-instruct-rocm -ngl 999 -c 131072 -b 2048 -ub 2048 --no-mmap \
+  --flash-attn on \
   --host 0.0.0.0 --port 8080 --jinja > /dev/null
 echo -e "${GREEN}✓${NC}"
 
@@ -166,7 +213,7 @@ docker create --name gpt-oss-20b-neoplus-server -p 8080:8080 \
   -v "${MODEL_MOUNT}":/models \
   "${IMAGE}" \
   llama-server -m /models/huggingface/gpt-oss-20b-neoplus/OpenAI-20B-NEOPlus-Uncensored-Q8_0.gguf \
-  --alias gpt-oss-20b-neoplus -ngl 999 -c 131072 -b 2048 -ub 2048 \
+  --alias gpt-oss-20b-neoplus -ngl 999 -c 131072 -b 2048 -ub 1024 \
   --cache-type-k f16 --cache-type-v f16 \
   --flash-attn on \
   --host 0.0.0.0 --port 8080 --jinja > /dev/null
@@ -179,11 +226,28 @@ docker create --name gpt-oss-20b-code-di-server -p 8080:8080 \
   -v "${MODEL_MOUNT}":/models \
   "${IMAGE}" \
   llama-server -m /models/huggingface/gpt-oss-20b-code-di/OpenAI-20B-NEO-CODE-DI-Uncensored-Q8_0.gguf \
-  --alias gpt-oss-20b-code-di -ngl 999 -c 131072 -b 2048 -ub 2048 \
+  --alias gpt-oss-20b-code-di -ngl 999 -c 131072 -b 2048 -ub 1024 \
   --cache-type-k f16 --cache-type-v f16 \
   --flash-attn on \
   --host 0.0.0.0 --port 8080 --jinja > /dev/null
 echo -e "${GREEN}✓${NC}"
+
+CONTAINERS=(
+  "gpt-oss-server"
+  "gpt-oss-server-rocm"
+  "qwen-server"
+  "dolphin-server"
+  "dolphin-fast-server"
+  "lfm2-server"
+  "gpt-oss-20b-server"
+  "gpt-oss-20b-server-rocm"
+  "qwen-thinking-server"
+  "jamba-reasoning-server"
+  "qwen-instruct-server"
+  "qwen-instruct-server-rocm"
+  "gpt-oss-20b-neoplus-server"
+  "gpt-oss-20b-code-di-server"
+)
 
 echo ""
 echo -e "${BLUE}========================================${NC}"
@@ -191,15 +255,41 @@ echo -e "${GREEN}✓ All containers recreated successfully!${NC}"
 echo -e "${BLUE}========================================${NC}"
 echo ""
 echo "Summary:"
-echo "  • Image updated: ${IMAGE}"
-echo "  • Containers created: 11"
+echo "  • Vulkan RADV image: ${IMAGE}"
+echo "  • ROCm 7 RC image: kyuz0/amd-strix-halo-toolboxes:rocm-7rc"
+echo "  • Containers created: 14 (11 RADV + 3 ROCm)"
 echo "  • Model mount: ${MODEL_MOUNT}"
+echo ""
+echo "ROCm variants (for long-context testing):"
+echo "  • gpt-oss-120b-rocm"
+echo "  • gpt-oss-20b-rocm"
+echo "  • qwen3-30b-instruct-rocm"
 echo ""
 echo "Not created (vision support not implemented):"
 echo "  • huihui-qwen3-vl-server"
 echo ""
+
+# Step 4: Restart proxy to register new models
+echo -e "${YELLOW}[4/4]${NC} Restarting LLM Queue Proxy..."
+docker restart llm-queue-proxy > /dev/null 2>&1
+if [ $? -eq 0 ]; then
+  echo -e "${GREEN}✓ Proxy restarted successfully${NC}"
+  sleep 2
+  echo ""
+  echo "Proxy Health:"
+  curl -s http://localhost:8888/health | jq 2>/dev/null
+  echo ""
+  echo "Available Models:"
+  curl -s http://localhost:8888/v1/models | jq -r '.data[].id' 2>/dev/null | sort | while read model; do
+    echo "  ${model} ${GREEN}✓${NC}"
+  done
+else
+  echo -e "${RED}✗ Failed to restart proxy${NC}"
+fi
+
+echo ""
+echo -e "${BLUE}========================================${NC}"
 echo "Next steps:"
 echo "  1. Start a model container: docker start gpt-oss-server"
-echo "  2. Restart the proxy: docker-compose restart llm-queue-proxy"
-echo "  3. Check health: curl http://localhost:8888/health"
+echo "  2. Test inference: curl http://localhost:8888/v1/chat/completions ..."
 echo ""
