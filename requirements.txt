@@ -26,3 +26,8 @@ redis[asyncio]==6.4.0
 
 # Observability and tracing
 langfuse==3.8.0
+
+# OpenTelemetry for Langfuse OTEL integration
+opentelemetry-api==1.38.0
+opentelemetry-sdk==1.38.0
+opentelemetry-exporter-otlp-proto-grpc==1.38.0

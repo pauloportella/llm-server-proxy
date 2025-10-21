@@ -261,6 +261,19 @@ docker create --name llama-3.2-3b-server -p 8080:8080 \
   --host 0.0.0.0 --port 8080 --jinja > /dev/null
 echo -e "${GREEN}✓${NC}"
 
+# LFM2-VL-1.6B Vision Model (ROCm 7 RC)
+echo -n "  Creating lfm2-vl-server... "
+docker create --name lfm2-vl-server -p 8080:8080 \
+  --device /dev/dri --device /dev/kfd \
+  -v "${MODEL_MOUNT}":/models \
+  "${IMAGE}" \
+  llama-server -m /models/huggingface/lfm2-vl-1.6b/LFM2-VL-1.6B-Q8_0.gguf \
+  --mmproj /models/huggingface/lfm2-vl-1.6b/mmproj-model-f16.gguf \
+  --alias lfm2-vl-1.6b -ngl 999 -c 4096 -ub 2048 --no-mmap \
+  --flash-attn on \
+  --host 0.0.0.0 --port 8080 --jinja > /dev/null
+echo -e "${GREEN}✓${NC}"
+
 CONTAINERS=(
   "gpt-oss-server"
   "qwen-server"
@@ -278,6 +291,7 @@ CONTAINERS=(
   "lfm2-1.2b-rag-server"
   "lfm2-1.2b-extract-server"
   "llama-3.2-3b-server"
+  "lfm2-vl-server"
 )
 
 echo ""
@@ -287,7 +301,7 @@ echo -e "${BLUE}========================================${NC}"
 echo ""
 echo "Summary:"
 echo "  • Backend: ROCm 7 RC (${IMAGE})"
-echo "  • Containers created: 16 (all ROCm 7 RC)"
+echo "  • Containers created: 17 (all ROCm 7 RC)"
 echo "  • Model mount: ${MODEL_MOUNT}"
 echo ""
 echo "ROCm 7 RC Benefits:"

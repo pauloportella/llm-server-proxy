@@ -70,6 +70,12 @@ models:
     health_url: http://localhost:8082/health
     startup_timeout: 180  # 3 minutes (30B vision model with transformers + ROCm)
 
+  lfm2-vl-1.6b:
+    container_name: lfm2-vl-server
+    backend_url: http://localhost:8080/v1
+    health_url: http://localhost:8080/health
+    startup_timeout: 30  # 30 seconds (1.6B vision model, Q8 GGUF, fast load)
+
   qwen3-30b-instruct:
     container_name: qwen-instruct-server
     backend_url: http://localhost:8080/v1

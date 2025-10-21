@@ -16,6 +16,7 @@ RUN uv pip install --system --pre torch torchvision pytorch-triton-rocm \
 RUN uv pip install --system \
     "git+https://github.com/huggingface/transformers.git" \
     "accelerate>=1.2.1" \
+    "bitsandbytes>=0.45.0" \
     "fastapi>=0.115.0" \
     "uvicorn>=0.32.0" \
     "pydantic>=2.10.0" \

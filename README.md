@@ -209,11 +209,23 @@ docker create --name llama-3.2-3b-server -p 8080:8080 \
   --flash-attn on \
   --host 0.0.0.0 --port 8080 --jinja
 
-# TODO: LFM2-VL-1.6B Vision Model (NOT YET CONFIGURED)
-# Downloaded: /mnt/ai_models/huggingface/lfm2-vl-1.6b/LFM2-VL-1.6B-Q8_0.gguf (1.16GB)
-# Backend: kyuz0/amd-strix-halo-toolboxes:vulkan-radv (NOT rocm-7rc - vision needs Vulkan)
-# Key differences: Single-file model (NO --mmproj needed), 32K context, uses libmtmd
-# Proxy limitation: Vision support NOT YET IMPLEMENTED - requires API updates for image input
+# LFM2-VL-1.6B Vision Model (Q8_0, ROCm 7 RC) ✅ FULLY WORKING
+docker create --name lfm2-vl-server -p 8080:8080 \
+  --device /dev/dri --device /dev/kfd \
+  -v /mnt/ai_models:/models \
+  kyuz0/amd-strix-halo-toolboxes:rocm-7rc \
+  llama-server -m /models/huggingface/lfm2-vl-1.6b/LFM2-VL-1.6B-Q8_0.gguf \
+  --mmproj /models/huggingface/lfm2-vl-1.6b/mmproj-model-f16.gguf \
+  --alias lfm2-vl-1.6b -ngl 999 -c 4096 -ub 2048 --no-mmap \
+  --flash-attn on \
+  --host 0.0.0.0 --port 8080 --jinja
+
+# Key features:
+# - Full vision support (accepts images via URLs or base64)
+# - Fast inference (1.6B params, Q8 quantization)
+# - Native streaming through llama-server
+# - Multimodal projector (830MB mmproj file) for image understanding
+# - Optimized for on-device vision tasks (512x512 native resolution)
 
 # TODO: Nanonets-OCR2-3B Vision OCR Model (NOT YET CONFIGURED)
 # Downloaded: /mnt/ai_models/huggingface/nanonets-ocr2-3b/ (3.29GB Q8_0 + mmproj)
@@ -516,9 +528,11 @@ Response:
 
 Use the OpenAI node with:
 - **Base URL:** `http://100.78.198.217:8888/v1`
-- **Model:** Choose from dropdown (gpt-oss-120b, gpt-oss-20b, gpt-oss-20b-neoplus, gpt-oss-20b-code-di, qwen3-coder-30b, qwen3-30b-thinking, qwen3-30b-instruct, qwen3-6b-almost-human, dolphin-mistral-24b, dolphin-mistral-24b-fast, lfm2-8b, jamba-reasoning-3b, huihui-qwen3-vl-30b*)
+- **Model:** Choose from dropdown (gpt-oss-120b, gpt-oss-20b, gpt-oss-20b-neoplus, gpt-oss-20b-code-di, qwen3-coder-30b, qwen3-30b-thinking, qwen3-30b-instruct, qwen3-6b-almost-human, dolphin-mistral-24b, dolphin-mistral-24b-fast, lfm2-8b, jamba-reasoning-3b, **lfm2-vl-1.6b** ✅, qwen3-vl-30b*)
 
-*Note: huihui-qwen3-vl-30b is a vision model - image support not yet implemented in proxy
+**Vision Models:**
+- **lfm2-vl-1.6b** ✅ - FULLY WORKING (fast, Q8, streaming, multimodal projector)
+- qwen3-vl-30b* - Slow (30B bf16, transformers backend, experimental)
 
 ### Python
 
@@ -586,6 +600,7 @@ print(response.choices[0].message.content)
 - AI21-Jamba-Reasoning-3B (F16, 6.4GB): ~5-10s
 - Llama-3.2-3B-Instruct (Q6_K_L, 2.74GB, 128K context): ~5-8s
 - LFM2-8B-A1B (Q8_0, 8.87GB): ~4-6s
+- LFM2-VL-1.6B (Q8_0, 1.2GB + 830MB mmproj, vision): ~5-10s
 - LFM2-1.2B-Tool (Q8_0, 1.2GB, tool-calling): ~2-5s
 - LFM2-1.2B-RAG (Q8_0, 1.2GB, RAG specialist): ~2-5s
 - LFM2-1.2B-Extract (Q8_0, 1.2GB, extraction): ~2-5s

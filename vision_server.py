@@ -1,21 +1,32 @@
 #!/usr/bin/env python3
 """OpenAI-compatible vision server for Qwen3-VL-30B-A3B-Instruct"""
 
+import json
+import time
 import torch
 import uvicorn
 from fastapi import FastAPI
+from fastapi.responses import StreamingResponse
 from pydantic import BaseModel, ConfigDict
 from typing import List, Dict, Any, Union, Optional
-from transformers import Qwen3VLMoeForConditionalGeneration, AutoProcessor
+from transformers import Qwen3VLMoeForConditionalGeneration, AutoProcessor, TextIteratorStreamer, BitsAndBytesConfig
+from threading import Thread
 
 app = FastAPI(title="Qwen3-VL Vision Server")
 
-# Load model at startup from local path
+# Load model at startup from local path with 8-bit quantization
 MODEL_PATH = "/models/qwen3-vl-30b-instruct"
-print(f"Loading Qwen3-VL-30B-A3B-Instruct model from {MODEL_PATH}...")
+print(f"Loading Qwen3-VL-30B-A3B-Instruct model from {MODEL_PATH} (8-bit quantization)...")
+
+# Configure 8-bit quantization
+quantization_config = BitsAndBytesConfig(
+    load_in_8bit=True,
+    llm_int8_threshold=6.0,
+)
+
 model = Qwen3VLMoeForConditionalGeneration.from_pretrained(
     MODEL_PATH,
-    torch_dtype=torch.bfloat16,
+    quantization_config=quantization_config,
     attn_implementation="sdpa",  # PyTorch SDPA (no flash-attn needed)
     device_map="auto",
     local_files_only=True,
@@ -41,6 +52,7 @@ class ChatCompletionRequest(BaseModel):
 @app.post("/v1/chat/completions")
 async def chat_completions(request: ChatCompletionRequest):
     """OpenAI-compatible chat completions endpoint with vision support"""
+    print(f"DEBUG: stream={request.stream}, type={type(request.stream)}")
 
     # Convert OpenAI format to Qwen3-VL format
     qwen_messages = []
@@ -79,7 +91,14 @@ async def chat_completions(request: ChatCompletionRequest):
     inputs.pop("token_type_ids", None)
     inputs = {k: v.to(model.device) for k, v in inputs.items()}
 
-    # Generate
+    # Handle streaming
+    if request.stream:
+        return StreamingResponse(
+            stream_generator(inputs, request),
+            media_type="text/event-stream"
+        )
+
+    # Non-streaming: Generate complete response
     generated_ids = model.generate(
         **inputs,
         max_new_tokens=request.max_tokens,
@@ -101,7 +120,7 @@ async def chat_completions(request: ChatCompletionRequest):
     return {
         "id": "chatcmpl-qwen3vl",
         "object": "chat.completion",
-        "created": 1234567890,
+        "created": int(time.time()),
         "model": request.model,
         "choices": [{
             "index": 0,
@@ -117,6 +136,58 @@ async def chat_completions(request: ChatCompletionRequest):
             "total_tokens": inputs["input_ids"].shape[1] + len(generated_ids_trimmed[0])
         }
     }
+
+def stream_generator(inputs, request):
+    """Generate streaming response in SSE format"""
+    # Create streamer
+    streamer = TextIteratorStreamer(
+        processor.tokenizer,
+        skip_prompt=True,
+        skip_special_tokens=True
+    )
+
+    # Run generation in separate thread
+    generation_kwargs = dict(
+        **inputs,
+        max_new_tokens=request.max_tokens,
+        temperature=request.temperature,
+        do_sample=request.temperature > 0,
+        streamer=streamer,
+    )
+    thread = Thread(target=model.generate, kwargs=generation_kwargs)
+    thread.start()
+
+    # Stream tokens as SSE events
+    for text in streamer:
+        chunk = {
+            "id": "chatcmpl-qwen3vl",
+            "object": "chat.completion.chunk",
+            "created": int(time.time()),
+            "model": request.model,
+            "choices": [{
+                "index": 0,
+                "delta": {"content": text},
+                "finish_reason": None
+            }]
+        }
+        yield f"data: {json.dumps(chunk)}\n\n"
+
+    # Send final chunk
+    final_chunk = {
+        "id": "chatcmpl-qwen3vl",
+        "object": "chat.completion.chunk",
+        "created": int(time.time()),
+        "model": request.model,
+        "choices": [{
+            "index": 0,
+            "delta": {},
+            "finish_reason": "stop"
+        }]
+    }
+    yield f"data: {json.dumps(final_chunk)}\n\n"
+    yield "data: [DONE]\n\n"
+
+    thread.join()
 
 @app.get("/health")
 async def health():
