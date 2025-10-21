@@ -13,10 +13,13 @@ from datetime import datetime
 
 import aiohttp
 import docker
+import httpx
 import litellm
 from litellm import acompletion, aembedding
 from fastapi import FastAPI, HTTPException, Request
 from fastapi.responses import JSONResponse, StreamingResponse
+
+from langfuse import Langfuse
 
 from .config import Config
 from .redis_queue import RedisQueue
@@ -34,19 +37,32 @@ logging.basicConfig(
 )
 logger = logging.getLogger(__name__)
 
-# Configure Langfuse observability
-# DISABLED: LiteLLM 1.78.5 is incompatible with Langfuse SDK v3.x
-# Error: "Langfuse.__init__() got an unexpected keyword argument 'sdk_integration'"
-#
-# Workaround options:
-# 1. Downgrade to langfuse==2.59.7 (conflicts with latest deps requirement)
-# 2. Wait for LiteLLM to add Langfuse v3 support
-# 3. Use LiteLLM Proxy Server instead of SDK (langfuse_otel callback is proxy-only)
-#
-# Related GitHub issues:
-# - https://github.com/BerriAI/litellm/issues/7128
-# - https://github.com/BerriAI/litellm/issues/13137
-logger.info("Langfuse observability DISABLED (LiteLLM 1.78.5 incompatible with Langfuse v3.x)")
+# Configure Langfuse observability (SDK v3 with manual instrumentation)
+# LiteLLM callbacks don't work properly with Langfuse SDK v3, so we use manual tracing
+# Requires environment variables: LANGFUSE_PUBLIC_KEY, LANGFUSE_SECRET_KEY, LANGFUSE_OTEL_HOST
+# Documentation: https://langfuse.com/docs/observability/sdk/python/overview
+langfuse_client = None
+if all([
+    os.getenv("LANGFUSE_PUBLIC_KEY"),
+    os.getenv("LANGFUSE_SECRET_KEY"),
+    os.getenv("LANGFUSE_OTEL_HOST")
+]):
+    # Set environment variables for Langfuse SDK v3
+    os.environ["LANGFUSE_HOST"] = os.getenv("LANGFUSE_OTEL_HOST")
+
+    # Enable debug logging for Langfuse
+    import logging as stdlib_logging
+    stdlib_logging.getLogger("langfuse").setLevel(stdlib_logging.DEBUG)
+
+    # Initialize Langfuse client
+    langfuse_client = Langfuse(
+        public_key=os.getenv("LANGFUSE_PUBLIC_KEY"),
+        secret_key=os.getenv("LANGFUSE_SECRET_KEY"),
+        host=os.getenv("LANGFUSE_OTEL_HOST")
+    )
+    logger.info(f"Langfuse observability enabled (SDK v3, host: {os.getenv('LANGFUSE_OTEL_HOST')})")
+else:
+    logger.info("Langfuse observability disabled (missing required environment variables)")
 
 # Global state
 config = Config()
@@ -194,18 +210,57 @@ async def forward_request(backend_url: str, request_data: dict) -> dict:
         if not model.startswith("openai/"):
             model = f"openai/{model}"
 
-        # Use LiteLLM for standardized OpenAI-compatible forwarding
-        response = await acompletion(
-            model=model,
-            messages=request_data.get("messages", []),
-            api_base=backend_url,
-            api_key="dummy-key",  # Required by LiteLLM but not validated by llama-server
-            stream=False,
-            timeout=config.request_timeout,
-            # Pass through all other OpenAI parameters
-            **{k: v for k, v in request_data.items()
-               if k not in ["model", "messages", "stream"]}
-        )
+        # Langfuse tracing (manual instrumentation for SDK v3)
+        if langfuse_client:
+            with langfuse_client.start_as_current_generation(
+                name="llm-completion",
+                model=request_data.get("model"),  # Original model name (not openai/ prefixed)
+                input=request_data.get("messages"),
+                metadata={
+                    "backend_url": backend_url,
+                    "stream": False,
+                    **{k: v for k, v in request_data.items()
+                       if k not in ["model", "messages", "stream"]}
+                }
+            ) as generation:
+                # Use LiteLLM for standardized OpenAI-compatible forwarding
+                response = await acompletion(
+                    model=model,
+                    messages=request_data.get("messages", []),
+                    api_base=backend_url,
+                    api_key="dummy-key",  # Required by LiteLLM but not validated by llama-server
+                    stream=False,
+                    timeout=config.request_timeout,
+                    # Pass through all other OpenAI parameters
+                    **{k: v for k, v in request_data.items()
+                       if k not in ["model", "messages", "stream"]}
+                )
+
+                # Update generation with output and usage
+                generation.update(
+                    output=response.choices[0].message.content if response.choices else None
+                )
+                if response.usage:
+                    generation.update(usage_details={
+                        "input": response.usage.prompt_tokens,
+                        "output": response.usage.completion_tokens,
+                        "total": response.usage.total_tokens
+                    })
+                # Flush to send trace immediately
+                langfuse_client.flush()
+        else:
+            # No Langfuse tracing - direct LiteLLM call
+            response = await acompletion(
+                model=model,
+                messages=request_data.get("messages", []),
+                api_base=backend_url,
+                api_key="dummy-key",  # Required by LiteLLM but not validated by llama-server
+                stream=False,
+                timeout=config.request_timeout,
+                # Pass through all other OpenAI parameters
+                **{k: v for k, v in request_data.items()
+                   if k not in ["model", "messages", "stream"]}
+            )
 
         # Convert ModelResponse to dict for consistency
         return response.model_dump() if hasattr(response, 'model_dump') else dict(response)
@@ -232,29 +287,83 @@ async def stream_response(backend_url: str, request_data: dict):
         if not model.startswith("openai/"):
             model = f"openai/{model}"
 
-        # Use LiteLLM for streaming
-        response = await acompletion(
-            model=model,
-            messages=request_data.get("messages", []),
-            api_base=backend_url,
-            api_key="dummy-key",
-            stream=True,
-            stream_timeout=config.request_timeout,
-            # Pass through all other OpenAI parameters
-            **{k: v for k, v in request_data.items()
-               if k not in ["model", "messages", "stream"]}
-        )
+        # Langfuse tracing for streaming (manual instrumentation for SDK v3)
+        # Note: Can't use context manager with streaming, so we manually start/end
+        generation = None
+        accumulated_content = []
+        total_tokens = {"input": 0, "output": 0, "total": 0}
 
-        # Stream chunks in SSE format
-        async for chunk in response:
-            if chunk:
-                # LiteLLM returns ModelResponse chunks, convert to JSON bytes
-                chunk_dict = chunk.model_dump() if hasattr(chunk, 'model_dump') else dict(chunk)
-                # Format as SSE event
-                yield f"data: {json.dumps(chunk_dict)}\n\n".encode('utf-8')
+        if langfuse_client:
+            # Start generation without context manager (manual lifecycle management)
+            generation = langfuse_client.start_generation(
+                name="llm-completion-stream",
+                model=request_data.get("model"),  # Original model name
+                input=request_data.get("messages"),
+                metadata={
+                    "backend_url": backend_url,
+                    "stream": True,
+                    **{k: v for k, v in request_data.items()
+                       if k not in ["model", "messages", "stream"]}
+                }
+            )
 
-        # Send completion signal
-        yield b"data: [DONE]\n\n"
+        try:
+            # Use LiteLLM for streaming
+            response = await acompletion(
+                model=model,
+                messages=request_data.get("messages", []),
+                api_base=backend_url,
+                api_key="dummy-key",
+                stream=True,
+                stream_timeout=config.request_timeout,
+                # Pass through all other OpenAI parameters
+                **{k: v for k, v in request_data.items()
+                   if k not in ["model", "messages", "stream"]}
+            )
+
+            # Stream chunks in SSE format
+            async for chunk in response:
+                if chunk:
+                    # LiteLLM returns ModelResponse chunks, convert to JSON bytes
+                    chunk_dict = chunk.model_dump() if hasattr(chunk, 'model_dump') else dict(chunk)
+
+                    # Accumulate content for Langfuse
+                    if generation and chunk_dict.get("choices"):
+                        for choice in chunk_dict["choices"]:
+                            delta = choice.get("delta", {})
+                            if "content" in delta and delta["content"]:
+                                accumulated_content.append(delta["content"])
+
+                    # Track usage stats
+                    if chunk_dict.get("usage"):
+                        usage = chunk_dict["usage"]
+                        total_tokens["input"] = usage.get("prompt_tokens", 0)
+                        total_tokens["output"] = usage.get("completion_tokens", 0)
+                        total_tokens["total"] = usage.get("total_tokens", 0)
+
+                    # Format as SSE event
+                    yield f"data: {json.dumps(chunk_dict)}\n\n".encode('utf-8')
+
+            # Send completion signal
+            yield b"data: [DONE]\n\n"
+
+        finally:
+            # Update and end Langfuse generation
+            if generation:
+                # Update with output
+                if accumulated_content:
+                    generation.update(output="".join(accumulated_content))
+                # Update with usage
+                if total_tokens["total"] > 0:
+                    generation.update(usage_details={
+                        "input": total_tokens["input"],
+                        "output": total_tokens["output"],
+                        "total": total_tokens["total"]
+                    })
+                # End the generation
+                generation.end()
+                # Flush to send trace immediately
+                langfuse_client.flush()
 
     except asyncio.CancelledError:
         logger.info("Streaming cancelled")
@@ -435,6 +544,14 @@ async def lifespan(app: FastAPI):
     # Wait for all workers to finish
     await asyncio.gather(*worker_tasks, return_exceptions=True)
     logger.info("All workers shut down")
+
+    # Flush Langfuse traces before shutdown
+    if langfuse_client:
+        try:
+            langfuse_client.flush()
+            logger.info("Flushed Langfuse traces")
+        except Exception as e:
+            logger.error(f"Error flushing Langfuse traces: {e}")
 
     if redis_queue:
         await redis_queue.disconnect()

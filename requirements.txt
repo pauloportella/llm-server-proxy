@@ -8,6 +8,7 @@ uvicorn[standard]==0.38.0
 
 # HTTP client
 aiohttp==3.13.1
+httpx==0.28.1  # Required for Langfuse SDK custom headers (Cloudflare Access)
 
 # LLM proxy/routing library (ACTUAL latest stable version from PyPI)
 litellm==1.78.5

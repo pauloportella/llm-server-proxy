@@ -226,25 +226,57 @@ docker exec llm-queue-redis redis-cli -a redis_password
 
 ## Dependencies
 
+**Core Framework:**
 - **FastAPI 0.119.0** - Modern async web framework
 - **uvicorn 0.37.0** - ASGI server
+- **pydantic 2.12.2** - Minimal data validation (most validation delegated to LiteLLM)
+
+**LLM Routing & API:**
 - **litellm 1.78.5** - LLM proxy/routing library for OpenAI-compatible API handling
 - **aiohttp 3.13.1** - Async HTTP client for health checks
-- **pyyaml 6.0.3** - YAML config parsing
+
+**Infrastructure:**
 - **docker 7.1.0** - Docker SDK for container management
-- **pydantic 2.12.2** - Minimal data validation (most validation delegated to LiteLLM)
+- **pyyaml 6.0.3** - YAML config parsing
 - **redis 6.4.0** - Redis async client for queue management
+
+**Observability (Langfuse via OpenTelemetry):**
+- **langfuse 3.8.0** - LLM observability and tracing (SDK v3)
+- **opentelemetry-api 1.38.0** - OpenTelemetry API for instrumentation
+- **opentelemetry-sdk 1.38.0** - OpenTelemetry SDK implementation
+- **opentelemetry-exporter-otlp-proto-grpc 1.38.0** - OTLP gRPC exporter for Langfuse
 
 ## Configuration
 
 ### Environment Variables (LLM Proxy)
 
+**Core Settings:**
 - `PYTHONUNBUFFERED=1` - Enable real-time log output
+- `NUM_WORKERS` - Number of parallel queue workers (default: 2)
+
+**Redis Queue:**
 - `REDIS_HOST` - Redis hostname (default: localhost)
 - `REDIS_PORT` - Redis port (default: 6379)
 - `REDIS_PASSWORD` - Redis password (default: redis_password)
 - `REDIS_DB` - Redis database number (default: 0)
-- `NUM_WORKERS` - Number of parallel queue workers (default: 2)
+
+**Langfuse Observability (SDK v3 with Manual Instrumentation):**
+- `LANGFUSE_PUBLIC_KEY` - Langfuse project public key (format: `pk-lf-...`) - Required
+- `LANGFUSE_SECRET_KEY` - Langfuse project secret key (format: `sk-lf-...`) - Required
+- `LANGFUSE_OTEL_HOST` - Custom OTEL endpoint (default: `https://us.cloud.langfuse.com`)
+  - US Cloud: `https://us.cloud.langfuse.com` (default)
+  - EU Cloud: `https://cloud.langfuse.com`
+  - Self-hosted: Your custom endpoint
+
+**Cloudflare Access (Optional - for Langfuse behind Cloudflare Access):**
+- `CF_ACCESS_CLIENT_ID` - Cloudflare Access service token client ID
+- `CF_ACCESS_CLIENT_SECRET` - Cloudflare Access service token client secret
+
+**Notes:**
+- If `LANGFUSE_PUBLIC_KEY` and `LANGFUSE_SECRET_KEY` are not set, observability is automatically disabled
+- Cloudflare Access headers are only added if both `CF_ACCESS_CLIENT_ID` and `CF_ACCESS_CLIENT_SECRET` are provided
+- Generate service tokens at: Cloudflare Zero Trust → Access → Service Auth → Service Tokens
+- Set these variables in your `.env` file or environment to enable Langfuse tracing
 
 ### Docker Compose Settings
 
