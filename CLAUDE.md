@@ -254,11 +254,13 @@ docker exec llm-queue-redis redis-cli -a redis_password
 - `PYTHONUNBUFFERED=1` - Enable real-time log output
 - `NUM_WORKERS` - Number of parallel queue workers (default: 2)
 
-**Redis Queue:**
+**Redis Queue (Hardcoded in docker-compose.yml):**
 - `REDIS_HOST` - Redis hostname (default: localhost)
 - `REDIS_PORT` - Redis port (default: 6379)
-- `REDIS_PASSWORD` - Redis password (default: redis_password)
+- `REDIS_PASSWORD` - Redis password (default: redis_password) ⚠️ **CHANGE FOR PRODUCTION**
 - `REDIS_DB` - Redis database number (default: 0)
+
+> **⚠️ SECURITY WARNING**: The default Redis password `redis_password` is hardcoded in `docker-compose.yml` for development convenience. **You MUST change this** if exposing Redis to any network or using in production. Update both the Redis container command and the `REDIS_PASSWORD` environment variable in docker-compose.yml.
 
 **Langfuse Observability (SDK v3 with Manual Instrumentation):**
 - `LANGFUSE_PUBLIC_KEY` - Langfuse project public key (format: `pk-lf-...`) - Required
@@ -268,15 +270,10 @@ docker exec llm-queue-redis redis-cli -a redis_password
   - EU Cloud: `https://cloud.langfuse.com`
   - Self-hosted: Your custom endpoint
 
-**Cloudflare Access (Optional - for Langfuse behind Cloudflare Access):**
-- `CF_ACCESS_CLIENT_ID` - Cloudflare Access service token client ID
-- `CF_ACCESS_CLIENT_SECRET` - Cloudflare Access service token client secret
-
 **Notes:**
 - If `LANGFUSE_PUBLIC_KEY` and `LANGFUSE_SECRET_KEY` are not set, observability is automatically disabled
-- Cloudflare Access headers are only added if both `CF_ACCESS_CLIENT_ID` and `CF_ACCESS_CLIENT_SECRET` are provided
-- Generate service tokens at: Cloudflare Zero Trust → Access → Service Auth → Service Tokens
-- Set these variables in your `.env` file or environment to enable Langfuse tracing
+- Set Langfuse variables in your `.env` file to enable tracing (see `.env.example`)
+- NUM_WORKERS can be overridden in `.env` or via environment variable
 
 ### Docker Compose Settings
 

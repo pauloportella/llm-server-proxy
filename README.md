@@ -1,5 +1,47 @@
 # LLM Queue Proxy
 
+> **⚠️ Important Notice**
+>
+> This project is **highly customized for my specific homelab setup** and is shared primarily for educational purposes and as a reference implementation. It is **not** a general-purpose, production-ready solution.
+>
+> ### Before Using This Project
+>
+> You will almost certainly need to **fork and adapt** this codebase for your environment:
+>
+> - **GPU/Hardware**: Built specifically for AMD Strix Halo APUs with ROCm 7 RC
+> - **Network**: Originally configured for my Netbird VPN mesh network (examples use localhost)
+> - **File Paths**: Contains paths specific to my system (`/mnt/ai_models`, etc.)
+> - **Model Backends**: Expects specific llama-server Docker containers with my model collection
+> - **Single-GPU Design**: Optimized for homelab use with ONE GPU, not production clusters
+> - **Security**: Uses development-grade credentials (see "Production Considerations" section)
+>
+> ### Intended Audience
+>
+> This project is useful if you:
+> - Run a **single-GPU homelab** and want to prevent GPU memory crashes
+> - Need **OpenAI API compatibility** with tools like Open WebUI or n8n
+> - Want to understand **Redis-based job queuing** for LLM request management
+> - Are researching **automatic model swapping** patterns
+>
+> ### What You'll Need to Change
+>
+> 1. Replace Redis password in `docker-compose.yml` (currently uses dev default)
+> 2. Update `config.yml` with your model containers and backends
+> 3. Adjust file paths for your model storage locations
+> 4. Modify Docker configs for your GPU (AMD/NVIDIA/etc.)
+> 5. Set up Langfuse observability keys in `.env` if desired (optional)
+>
+> **Contributions are welcome**, but please understand this is a personal project first and foremost. I'm happy to help with questions, but cannot provide production support.
+
+## Acknowledgments
+
+- **[AMD Strix Halo Toolboxes](https://github.com/kyuz0/amd-strix-halo-toolboxes)** - Docker images with ROCm 7 RC support by [@kyuz0](https://github.com/kyuz0)
+- **[Strix Halo Homelab](https://strixhalo-homelab.d7.wtf/)** - Community discussions and benchmarking
+
+---
+
+## Overview
+
 OpenAI-compatible proxy server with automatic model swapping and request queueing for single-GPU homelab deployments.
 
 ## Features
@@ -322,12 +364,12 @@ docker-compose restart
 
 ## Usage
 
-**API Endpoint:** `http://100.78.198.217:8888`
+**API Endpoint:** `http://localhost:8888`
 
 ### List Available Models
 
 ```bash
-curl http://100.78.198.217:8888/v1/models
+curl http://localhost:8888/v1/models
 ```
 
 Response:
@@ -444,7 +486,7 @@ Response:
 ### Chat Completion
 
 ```bash
-curl -X POST http://100.78.198.217:8888/v1/chat/completions \
+curl -X POST http://localhost:8888/v1/chat/completions \
   -H "Content-Type: application/json" \
   -d '{
     "model": "gpt-oss-120b",
@@ -471,7 +513,7 @@ curl ... -d '{"model": "dolphin-mistral-24b", ...}'
 ### Health Check
 
 ```bash
-curl http://100.78.198.217:8888/health
+curl http://localhost:8888/health
 ```
 
 Response:
@@ -488,7 +530,7 @@ Response:
 ### Metrics
 
 ```bash
-curl http://100.78.198.217:8888/metrics
+curl http://localhost:8888/metrics
 ```
 
 Response:
@@ -520,14 +562,14 @@ Response:
 
 1. Go to Settings → Connections
 2. Add OpenAI Connection:
-   - **API URL:** `http://100.78.198.217:8888/v1`
+   - **API URL:** `http://localhost:8888/v1`
    - **API Key:** (leave empty or use any string)
 3. Models will appear automatically
 
 ### n8n
 
 Use the OpenAI node with:
-- **Base URL:** `http://100.78.198.217:8888/v1`
+- **Base URL:** `http://localhost:8888/v1`
 - **Model:** Choose from dropdown (gpt-oss-120b, gpt-oss-20b, gpt-oss-20b-neoplus, gpt-oss-20b-code-di, qwen3-coder-30b, qwen3-30b-thinking, qwen3-30b-instruct, qwen3-6b-almost-human, dolphin-mistral-24b, dolphin-mistral-24b-fast, lfm2-8b, jamba-reasoning-3b, **lfm2-vl-1.6b** ✅, qwen3-vl-30b*)
 
 **Vision Models:**
@@ -540,7 +582,7 @@ Use the OpenAI node with:
 from openai import OpenAI
 
 client = OpenAI(
-    base_url="http://100.78.198.217:8888/v1",
+    base_url="http://localhost:8888/v1",
     api_key="not-needed"
 )
 
@@ -637,5 +679,4 @@ MIT
 
 ## Related Documentation
 
-- [CACHYOS_SETUP.md](../../dotfiles/CACHYOS_SETUP.md) - Backend model setup
-- [AMD Strix Halo Toolboxes](https://github.com/kyuz0/amd-strix-halo-toolboxes)
+- [AMD Strix Halo Toolboxes](https://github.com/kyuz0/amd-strix-halo-toolboxes) - ROCm Docker images
