@@ -83,6 +83,7 @@ class RedisQueue:
         job_id: str,
         model: str,
         request_data: dict,
+        job_type: str = "completion",
         priority: int = 0
     ) -> None:
         """Enqueue a job with optional priority (higher = earlier).
@@ -91,6 +92,7 @@ class RedisQueue:
             job_id: Unique job identifier
             model: Model name
             request_data: Request data dict
+            job_type: Job type (completion, embedding, etc.)
             priority: Priority level (0 is default)
         """
         if not self.redis:
@@ -100,6 +102,7 @@ class RedisQueue:
             "job_id": job_id,
             "model": model,
             "request_data": request_data,
+            "job_type": job_type,
             "timestamp": datetime.utcnow().isoformat(),
             "retries": 0,
             "max_retries": DEFAULT_MAX_RETRIES,

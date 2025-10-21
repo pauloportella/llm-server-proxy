@@ -5,7 +5,7 @@ handles full OpenAI schema validation and forwarding.
 """
 
 from pydantic import BaseModel, Field, ConfigDict
-from typing import Optional, List, Dict, Any
+from typing import Optional, List, Dict, Any, Literal
 
 
 class ModelConfig(BaseModel):
@@ -14,6 +14,7 @@ class ModelConfig(BaseModel):
     backend_url: str
     health_url: str
     startup_timeout: int = 180
+    type: Literal["completion", "embedding"] = "completion"  # Model type for endpoint validation
 
 
 class ChatCompletionRequest(BaseModel):

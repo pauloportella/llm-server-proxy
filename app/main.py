@@ -279,6 +279,81 @@ async def forward_request(backend_url: str, request_data: dict) -> dict:
         )
 
 
+async def forward_embedding(backend_url: str, request_data: dict) -> dict:
+    """Forward embedding request to backend LLM server using LiteLLM with Langfuse tracing."""
+    try:
+        # Extract model name and add openai/ prefix for LiteLLM routing
+        model = request_data.get("model", "unknown")
+        if not model.startswith("openai/"):
+            model = f"openai/{model}"
+
+        # Langfuse tracing (manual instrumentation for SDK v3)
+        if langfuse_client:
+            with langfuse_client.start_as_current_generation(
+                name="llm-embedding",
+                model=request_data.get("model"),  # Original model name (not openai/ prefixed)
+                input=request_data.get("input"),
+                metadata={
+                    "backend_url": backend_url,
+                    **{k: v for k, v in request_data.items()
+                       if k not in ["model", "input"]}
+                }
+            ) as generation:
+                # Use LiteLLM for standardized OpenAI-compatible embedding
+                response = await aembedding(
+                    model=model,
+                    input=request_data.get("input", []),
+                    api_base=backend_url,
+                    api_key="dummy-key",  # Required by LiteLLM but not validated by backend
+                    timeout=config.request_timeout,
+                    # Pass through all other OpenAI parameters
+                    **{k: v for k, v in request_data.items()
+                       if k not in ["model", "input"]}
+                )
+
+                # Update generation with output (embedding count and dimensions)
+                if response.data:
+                    generation.update(
+                        output=f"{len(response.data)} embeddings generated"
+                    )
+                if response.usage:
+                    generation.update(usage_details={
+                        "input": response.usage.prompt_tokens,
+                        "output": 0,  # Embeddings don't have output tokens
+                        "total": response.usage.total_tokens
+                    })
+                # Flush to send trace immediately
+                langfuse_client.flush()
+        else:
+            # No Langfuse tracing - direct LiteLLM call
+            response = await aembedding(
+                model=model,
+                input=request_data.get("input", []),
+                api_base=backend_url,
+                api_key="dummy-key",
+                timeout=config.request_timeout,
+                # Pass through all other OpenAI parameters
+                **{k: v for k, v in request_data.items()
+                   if k not in ["model", "input"]}
+            )
+
+        # Convert EmbeddingResponse to dict for consistency
+        return response.model_dump() if hasattr(response, 'model_dump') else dict(response)
+
+    except asyncio.CancelledError:
+        logger.info("Embedding request cancelled")
+        raise
+    except Exception as e:
+        logger.error(f"LiteLLM embedding error: {e}")
+        # Re-raise as HTTPException for FastAPI
+        if isinstance(e, HTTPException):
+            raise
+        raise HTTPException(
+            status_code=500,
+            detail=f"Backend embedding error: {str(e)}"
+        )
+
+
 async def stream_response(backend_url: str, request_data: dict):
     """Stream response from backend using LiteLLM."""
     try:
@@ -374,6 +449,109 @@ async def stream_response(backend_url: str, request_data: dict):
         yield f"data: {json.dumps(error_data)}\n\n".encode('utf-8')
 
 
+async def enqueue_and_wait(
+    job_id: str,
+    model: str,
+    request_data: dict,
+    request: Request,
+    job_type: str = "completion"
+) -> dict:
+    """
+    Unified queue logic for all endpoints.
+
+    Enqueues job to Redis, waits for worker to process it, handles client
+    disconnection and timeouts. Returns result dict or raises HTTPException.
+    """
+    if not redis_queue:
+        raise HTTPException(
+            status_code=503,
+            detail="Queue service not available"
+        )
+
+    # Increment total requests metric
+    async with metrics_lock:
+        metrics["total_requests"] += 1
+
+    # Create future for result
+    request_future = asyncio.Future()
+    pending_futures[job_id] = request_future
+
+    try:
+        # Enqueue job
+        await redis_queue.enqueue(
+            job_id=job_id,
+            model=model,
+            request_data=request_data,
+            job_type=job_type
+        )
+        logger.info(f"Enqueued {job_type} job {job_id} for model {model}")
+
+        # Create disconnection checker task
+        async def check_disconnection():
+            """Periodically check if client disconnected."""
+            while not request_future.done():
+                if await request.is_disconnected():
+                    logger.info(f"Client disconnected for job {job_id}")
+                    if not request_future.done():
+                        request_future.cancel()
+                        logger.info(f"Job {job_id} was cancelled by client")
+                    break
+                # Check more frequently (0.1s) to catch n8n workflow cancellations faster
+                await asyncio.sleep(0.1)
+
+        disconnection_task = asyncio.create_task(check_disconnection())
+
+        try:
+            # Wait for result with timeout
+            result = await asyncio.wait_for(
+                request_future,
+                timeout=config.request_timeout + 300  # Extra buffer for model switching
+            )
+            return result
+        finally:
+            # Cancel disconnection checker
+            disconnection_task.cancel()
+            try:
+                await disconnection_task
+            except asyncio.CancelledError:
+                pass
+
+    except asyncio.TimeoutError:
+        logger.warning(f"Job {job_id} timed out")
+        async with metrics_lock:
+            metrics["failed_requests"] += 1
+        # Clean up future (won't be processed by worker)
+        pending_futures.pop(job_id, None)
+        raise HTTPException(
+            status_code=504,
+            detail=f"Request timed out after {config.request_timeout + 300}s"
+        )
+
+    except asyncio.CancelledError:
+        # Already logged by disconnection checker
+        async with metrics_lock:
+            metrics["cancelled_requests"] += 1
+        # DON'T delete future here - let worker detect cancellation and clean up
+        raise HTTPException(
+            status_code=499,
+            detail="Request cancelled"
+        )
+
+    except HTTPException:
+        raise
+
+    except Exception as e:
+        logger.error(f"Error processing job {job_id}: {e}")
+        async with metrics_lock:
+            metrics["failed_requests"] += 1
+        # Clean up future if error happened before worker processed it
+        pending_futures.pop(job_id, None)
+        raise HTTPException(
+            status_code=500,
+            detail=f"Error processing request: {str(e)}"
+        )
+
+
 async def queue_worker(worker_id: int = 0):
     """Process requests from Redis queue."""
     if not redis_queue:
@@ -397,8 +575,9 @@ async def queue_worker(worker_id: int = 0):
             job_id, job_dict = result
             model = job_dict["model"]
             request_data = job_dict["request_data"]
+            job_type = job_dict.get("job_type", "completion")  # Default to completion for backwards compatibility
 
-            logger.info(f"[Worker {worker_id}] Processing job {job_id} for model {model}")
+            logger.info(f"[Worker {worker_id}] Processing {job_type} job {job_id} for model {model}")
 
             # Track active worker
             async with metrics_lock:
@@ -445,9 +624,16 @@ async def queue_worker(worker_id: int = 0):
                 # Forward request (no lock - llama-server handles concurrency)
                 # Wrap in task so we can cancel it if client disconnects
                 model_config = config.get_model(model)
-                forward_task = asyncio.create_task(
-                    forward_request(model_config.backend_url, request_data)
-                )
+
+                # Dispatch based on job type
+                if job_type == "embedding":
+                    forward_task = asyncio.create_task(
+                        forward_embedding(model_config.backend_url, request_data)
+                    )
+                else:  # Default to completion
+                    forward_task = asyncio.create_task(
+                        forward_request(model_config.backend_url, request_data)
+                    )
 
                 # Poll for cancellation while waiting for backend (check every 0.1s for faster response)
                 while not forward_task.done():
@@ -597,11 +783,19 @@ async def chat_completions(chat_request: ChatCompletionRequest, request: Request
     # Log metadata for debugging (only first time we see these headers)
     logger.info(f"Request metadata: batch_id={batch_id}, user_agent={user_agent}, client={client_ip}")
 
-    # Validate model
+    # Validate model exists
     if model not in config.list_models():
         raise HTTPException(
             status_code=400,
             detail=f"Unknown model: {model}. Available: {config.list_models()}"
+        )
+
+    # Validate model type is compatible with endpoint
+    model_config = config.get_model(model)
+    if model_config.type == "embedding":
+        raise HTTPException(
+            status_code=400,
+            detail=f"Model '{model}' is an embedding model. Use the /v1/embeddings endpoint instead."
         )
 
     if not redis_queue:
@@ -624,97 +818,29 @@ async def chat_completions(chat_request: ChatCompletionRequest, request: Request
             media_type="text/event-stream"
         )
 
-    # Non-streaming: use Redis queue
-    async with metrics_lock:
-        metrics["total_requests"] += 1
-
-    # Generate unique job ID
-    job_id = str(uuid.uuid4())
-
-    # Create future for result
-    request_future = asyncio.Future()
-    pending_futures[job_id] = request_future
-
-    try:
-        # Enqueue job
-        await redis_queue.enqueue(
-            job_id=job_id,
-            model=model,
-            request_data=chat_request.model_dump()
-        )
-        logger.info(f"Enqueued job {job_id} for model {model}")
-
-        # Create disconnection checker task
-        async def check_disconnection():
-            """Periodically check if client disconnected."""
-            while not request_future.done():
-                if await request.is_disconnected():
-                    logger.info(f"Client disconnected for job {job_id}")
-                    if not request_future.done():
-                        request_future.cancel()
-                        logger.info(f"Job {job_id} was cancelled by client")
-                    break
-                # Check more frequently (0.1s) to catch n8n workflow cancellations faster
-                await asyncio.sleep(0.1)
-
-        disconnection_task = asyncio.create_task(check_disconnection())
-
-        try:
-            # Wait for result with timeout
-            result = await asyncio.wait_for(
-                request_future,
-                timeout=config.request_timeout + 300  # Extra buffer for model switching
-            )
-            return result
-        finally:
-            # Cancel disconnection checker
-            disconnection_task.cancel()
-            try:
-                await disconnection_task
-            except asyncio.CancelledError:
-                pass
-
-    except asyncio.TimeoutError:
-        logger.warning(f"Job {job_id} timed out")
-        async with metrics_lock:
-            metrics["failed_requests"] += 1
-        # Clean up future (won't be processed by worker)
-        pending_futures.pop(job_id, None)
-        raise HTTPException(
-            status_code=504,
-            detail=f"Request timed out after {config.request_timeout + 300}s"
-        )
-
-    except asyncio.CancelledError:
-        # Already logged by disconnection checker
-        async with metrics_lock:
-            metrics["cancelled_requests"] += 1
-        # DON'T delete future here - let worker detect cancellation and clean up
-        raise HTTPException(
-            status_code=499,
-            detail="Request cancelled"
-        )
-
-    except HTTPException:
-        raise
-
-    except Exception as e:
-        logger.error(f"Error processing job {job_id}: {e}")
-        async with metrics_lock:
-            metrics["failed_requests"] += 1
-        # Clean up future if error happened before worker processed it
-        pending_futures.pop(job_id, None)
-        raise HTTPException(
-            status_code=500,
-            detail=f"Error processing request: {str(e)}"
-        )
+    # Non-streaming: use Redis queue with unified enqueue_and_wait helper
+    return await enqueue_and_wait(
+        job_id=str(uuid.uuid4()),
+        model=model,
+        request_data=chat_request.model_dump(),
+        request=request,
+        job_type="completion"
+    )
 
 
 @app.post("/v1/embeddings")
 async def embeddings(request: Request):
-    """OpenAI-compatible embeddings endpoint via LiteLLM."""
+    """OpenAI-compatible embeddings endpoint via LiteLLM with queueing."""
     request_body = await request.json()
     model = request_body.get("model", "unknown")
+
+    # Extract metadata headers for batch/workflow tracking
+    batch_id = request.headers.get("x-batch-id") or request.headers.get("x-correlation-id") or request.headers.get("x-request-id")
+    user_agent = request.headers.get("user-agent", "unknown")
+    client_ip = request.client.host if request.client else "unknown"
+
+    # Log metadata for debugging
+    logger.info(f"Embedding request metadata: batch_id={batch_id}, user_agent={user_agent}, client={client_ip}")
 
     # Validate model exists
     if model not in config.list_models():
@@ -723,36 +849,22 @@ async def embeddings(request: Request):
             detail=f"Unknown model: {model}. Available: {config.list_models()}"
         )
 
-    try:
-        # Switch to requested model (embeddings models are typically small/fast)
-        await switch_model(model)
-
-        # Get model config and forward via LiteLLM
-        model_config = config.get_model(model)
-
-        # Add openai/ prefix for LiteLLM routing
-        litellm_model = f"openai/{model}" if not model.startswith("openai/") else model
-
-        response = await aembedding(
-            model=litellm_model,
-            input=request_body.get("input", []),
-            api_base=model_config.backend_url,
-            api_key="dummy-key",
-            timeout=config.request_timeout,
-            # Pass through other params
-            **{k: v for k, v in request_body.items()
-               if k not in ["model", "input"]}
-        )
-
-        # Convert to dict
-        return response.model_dump() if hasattr(response, 'model_dump') else dict(response)
-
-    except Exception as e:
-        logger.error(f"Embeddings error: {e}")
+    # Validate model type is compatible with endpoint
+    model_config = config.get_model(model)
+    if model_config.type != "embedding":
         raise HTTPException(
-            status_code=500,
-            detail=f"Embeddings error: {str(e)}"
+            status_code=400,
+            detail=f"Model '{model}' is a completion model. Use the /v1/chat/completions endpoint instead."
         )
+
+    # Use Redis queue with unified enqueue_and_wait helper
+    return await enqueue_and_wait(
+        job_id=str(uuid.uuid4()),
+        model=model,
+        request_data=request_body,
+        request=request,
+        job_type="embedding"
+    )
 
 
 @app.get("/health", response_model=HealthResponse)
