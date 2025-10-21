@@ -41,6 +41,7 @@ CONTAINERS=(
   "lfm2-1.2b-rag-server"
   "lfm2-1.2b-extract-server"
   "llama-3.2-3b-server"
+  "qwen3-vl-server"
 )
 
 for container in "${CONTAINERS[@]}"; do
@@ -261,6 +262,27 @@ docker create --name llama-3.2-3b-server -p 8080:8080 \
   --host 0.0.0.0 --port 8080 --jinja > /dev/null
 echo -e "${GREEN}✓${NC}"
 
+# LFM2-VL-1.6B Vision Model (ROCm 7 RC)
+echo -n "  Creating lfm2-vl-server... "
+docker create --name lfm2-vl-server -p 8080:8080 \
+  --device /dev/dri --device /dev/kfd \
+  -v "${MODEL_MOUNT}":/models \
+  "${IMAGE}" \
+  llama-server -m /models/huggingface/lfm2-vl-1.6b/LFM2-VL-1.6B-Q8_0.gguf \
+  --mmproj /models/huggingface/lfm2-vl-1.6b/mmproj-model-f16.gguf \
+  --alias lfm2-vl-1.6b -ngl 999 -c 4096 -ub 2048 --no-mmap \
+  --flash-attn on \
+  --host 0.0.0.0 --port 8080 --jinja > /dev/null
+echo -e "${GREEN}✓${NC}"
+
+# Qwen3-VL-30B Vision Model (Custom transformers server - NOT llama.cpp)
+echo -n "  Creating qwen3-vl-server... "
+docker create --name qwen3-vl-server -p 8080:8080 \
+  --device /dev/dri --device /dev/kfd \
+  -v "${MODEL_MOUNT}":/models \
+  qwen3-vl-vision-server:latest > /dev/null
+echo -e "${GREEN}✓${NC}"
+
 CONTAINERS=(
   "gpt-oss-server"
   "qwen-server"
@@ -278,6 +300,8 @@ CONTAINERS=(
   "lfm2-1.2b-rag-server"
   "lfm2-1.2b-extract-server"
   "llama-3.2-3b-server"
+  "lfm2-vl-server"
+  "qwen3-vl-server"
 )
 
 echo ""
@@ -287,7 +311,9 @@ echo -e "${BLUE}========================================${NC}"
 echo ""
 echo "Summary:"
 echo "  • Backend: ROCm 7 RC (${IMAGE})"
-echo "  • Containers created: 16 (all ROCm 7 RC)"
+echo "  • Containers created: 18 models"
+echo "    - 17 llama.cpp (ROCm 7 RC)"
+echo "    - 1 transformers (Qwen3-VL-30B)"
 echo "  • Model mount: ${MODEL_MOUNT}"
 echo ""
 echo "ROCm 7 RC Benefits:"
@@ -299,9 +325,7 @@ echo "Special configurations:"
 echo "  • Dolphin models: -ub 32 (prevents GPU cleanup crashes)"
 echo "  • All other models: -ub 2048 (optimal for ROCm)"
 echo "  • --no-mmap flag: Required for ROCm large model stability"
-echo ""
-echo "Not created (vision support not implemented):"
-echo "  • huihui-qwen3-vl-server"
+echo "  • Qwen3-VL-30B: Custom transformers server (bfloat16)"
 echo ""
 
 # Step 4: Restart proxy to register new models

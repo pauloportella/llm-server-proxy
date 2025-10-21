@@ -1,5 +1,47 @@
 # LLM Queue Proxy
 
+> **⚠️ Important Notice**
+>
+> This project is **highly customized for my specific homelab setup** and is shared primarily for educational purposes and as a reference implementation. It is **not** a general-purpose, production-ready solution.
+>
+> ### Before Using This Project
+>
+> You will almost certainly need to **fork and adapt** this codebase for your environment:
+>
+> - **GPU/Hardware**: Built specifically for AMD Strix Halo APUs with ROCm 7 RC
+> - **Network**: Originally configured for my Netbird VPN mesh network (examples use localhost)
+> - **File Paths**: Contains paths specific to my system (`/mnt/ai_models`, etc.)
+> - **Model Backends**: Expects specific llama-server Docker containers with my model collection
+> - **Single-GPU Design**: Optimized for homelab use with ONE GPU, not production clusters
+> - **Security**: Uses development-grade credentials (see "Production Considerations" section)
+>
+> ### Intended Audience
+>
+> This project is useful if you:
+> - Run a **single-GPU homelab** and want to prevent GPU memory crashes
+> - Need **OpenAI API compatibility** with tools like Open WebUI or n8n
+> - Want to understand **Redis-based job queuing** for LLM request management
+> - Are researching **automatic model swapping** patterns
+>
+> ### What You'll Need to Change
+>
+> 1. Replace Redis password in `docker-compose.yml` (currently uses dev default)
+> 2. Update `config.yml` with your model containers and backends
+> 3. Adjust file paths for your model storage locations
+> 4. Modify Docker configs for your GPU (AMD/NVIDIA/etc.)
+> 5. Set up Langfuse observability keys in `.env` if desired (optional)
+>
+> **Contributions are welcome**, but please understand this is a personal project first and foremost. I'm happy to help with questions, but cannot provide production support.
+
+## Acknowledgments
+
+- **[AMD Strix Halo Toolboxes](https://github.com/kyuz0/amd-strix-halo-toolboxes)** - Docker images with ROCm 7 RC support by [@kyuz0](https://github.com/kyuz0)
+- **[Strix Halo Homelab](https://strixhalo-homelab.d7.wtf/)** - Community discussions and benchmarking
+
+---
+
+## Overview
+
 OpenAI-compatible proxy server with automatic model swapping and request queueing for single-GPU homelab deployments.
 
 ## Features
@@ -209,11 +251,23 @@ docker create --name llama-3.2-3b-server -p 8080:8080 \
   --flash-attn on \
   --host 0.0.0.0 --port 8080 --jinja
 
-# TODO: LFM2-VL-1.6B Vision Model (NOT YET CONFIGURED)
-# Downloaded: /mnt/ai_models/huggingface/lfm2-vl-1.6b/LFM2-VL-1.6B-Q8_0.gguf (1.16GB)
-# Backend: kyuz0/amd-strix-halo-toolboxes:vulkan-radv (NOT rocm-7rc - vision needs Vulkan)
-# Key differences: Single-file model (NO --mmproj needed), 32K context, uses libmtmd
-# Proxy limitation: Vision support NOT YET IMPLEMENTED - requires API updates for image input
+# LFM2-VL-1.6B Vision Model (Q8_0, ROCm 7 RC) ✅ FULLY WORKING
+docker create --name lfm2-vl-server -p 8080:8080 \
+  --device /dev/dri --device /dev/kfd \
+  -v /mnt/ai_models:/models \
+  kyuz0/amd-strix-halo-toolboxes:rocm-7rc \
+  llama-server -m /models/huggingface/lfm2-vl-1.6b/LFM2-VL-1.6B-Q8_0.gguf \
+  --mmproj /models/huggingface/lfm2-vl-1.6b/mmproj-model-f16.gguf \
+  --alias lfm2-vl-1.6b -ngl 999 -c 4096 -ub 2048 --no-mmap \
+  --flash-attn on \
+  --host 0.0.0.0 --port 8080 --jinja
+
+# Key features:
+# - Full vision support (accepts images via URLs or base64)
+# - Fast inference (1.6B params, Q8 quantization)
+# - Native streaming through llama-server
+# - Multimodal projector (830MB mmproj file) for image understanding
+# - Optimized for on-device vision tasks (512x512 native resolution)
 
 # TODO: Nanonets-OCR2-3B Vision OCR Model (NOT YET CONFIGURED)
 # Downloaded: /mnt/ai_models/huggingface/nanonets-ocr2-3b/ (3.29GB Q8_0 + mmproj)
@@ -310,12 +364,12 @@ docker-compose restart
 
 ## Usage
 
-**API Endpoint:** `http://100.78.198.217:8888`
+**API Endpoint:** `http://localhost:8888`
 
 ### List Available Models
 
 ```bash
-curl http://100.78.198.217:8888/v1/models
+curl http://localhost:8888/v1/models
 ```
 
 Response:
@@ -432,7 +486,7 @@ Response:
 ### Chat Completion
 
 ```bash
-curl -X POST http://100.78.198.217:8888/v1/chat/completions \
+curl -X POST http://localhost:8888/v1/chat/completions \
   -H "Content-Type: application/json" \
   -d '{
     "model": "gpt-oss-120b",
@@ -459,7 +513,7 @@ curl ... -d '{"model": "dolphin-mistral-24b", ...}'
 ### Health Check
 
 ```bash
-curl http://100.78.198.217:8888/health
+curl http://localhost:8888/health
 ```
 
 Response:
@@ -476,7 +530,7 @@ Response:
 ### Metrics
 
 ```bash
-curl http://100.78.198.217:8888/metrics
+curl http://localhost:8888/metrics
 ```
 
 Response:
@@ -508,17 +562,19 @@ Response:
 
 1. Go to Settings → Connections
 2. Add OpenAI Connection:
-   - **API URL:** `http://100.78.198.217:8888/v1`
+   - **API URL:** `http://localhost:8888/v1`
    - **API Key:** (leave empty or use any string)
 3. Models will appear automatically
 
 ### n8n
 
 Use the OpenAI node with:
-- **Base URL:** `http://100.78.198.217:8888/v1`
-- **Model:** Choose from dropdown (gpt-oss-120b, gpt-oss-20b, gpt-oss-20b-neoplus, gpt-oss-20b-code-di, qwen3-coder-30b, qwen3-30b-thinking, qwen3-30b-instruct, qwen3-6b-almost-human, dolphin-mistral-24b, dolphin-mistral-24b-fast, lfm2-8b, jamba-reasoning-3b, huihui-qwen3-vl-30b*)
+- **Base URL:** `http://localhost:8888/v1`
+- **Model:** Choose from dropdown (gpt-oss-120b, gpt-oss-20b, gpt-oss-20b-neoplus, gpt-oss-20b-code-di, qwen3-coder-30b, qwen3-30b-thinking, qwen3-30b-instruct, qwen3-6b-almost-human, dolphin-mistral-24b, dolphin-mistral-24b-fast, lfm2-8b, jamba-reasoning-3b, **lfm2-vl-1.6b** ✅, qwen3-vl-30b*)
 
-*Note: huihui-qwen3-vl-30b is a vision model - image support not yet implemented in proxy
+**Vision Models:**
+- **lfm2-vl-1.6b** ✅ - FULLY WORKING (fast, Q8, streaming, multimodal projector)
+- qwen3-vl-30b* - Slow (30B bf16, transformers backend, experimental)
 
 ### Python
 
@@ -526,7 +582,7 @@ Use the OpenAI node with:
 from openai import OpenAI
 
 client = OpenAI(
-    base_url="http://100.78.198.217:8888/v1",
+    base_url="http://localhost:8888/v1",
     api_key="not-needed"
 )
 
@@ -586,6 +642,7 @@ print(response.choices[0].message.content)
 - AI21-Jamba-Reasoning-3B (F16, 6.4GB): ~5-10s
 - Llama-3.2-3B-Instruct (Q6_K_L, 2.74GB, 128K context): ~5-8s
 - LFM2-8B-A1B (Q8_0, 8.87GB): ~4-6s
+- LFM2-VL-1.6B (Q8_0, 1.2GB + 830MB mmproj, vision): ~5-10s
 - LFM2-1.2B-Tool (Q8_0, 1.2GB, tool-calling): ~2-5s
 - LFM2-1.2B-RAG (Q8_0, 1.2GB, RAG specialist): ~2-5s
 - LFM2-1.2B-Extract (Q8_0, 1.2GB, extraction): ~2-5s
@@ -622,5 +679,4 @@ MIT
 
 ## Related Documentation
 
-- [CACHYOS_SETUP.md](../../dotfiles/CACHYOS_SETUP.md) - Backend model setup
-- [AMD Strix Halo Toolboxes](https://github.com/kyuz0/amd-strix-halo-toolboxes)
+- [AMD Strix Halo Toolboxes](https://github.com/kyuz0/amd-strix-halo-toolboxes) - ROCm Docker images

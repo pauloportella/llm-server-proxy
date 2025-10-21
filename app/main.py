@@ -5,6 +5,7 @@ import time
 import logging
 import os
 import uuid
+import json
 from typing import Optional
 from contextlib import asynccontextmanager
 from collections import defaultdict
@@ -12,8 +13,13 @@ from datetime import datetime
 
 import aiohttp
 import docker
+import httpx
+import litellm
+from litellm import acompletion, aembedding
 from fastapi import FastAPI, HTTPException, Request
 from fastapi.responses import JSONResponse, StreamingResponse
+
+from langfuse import Langfuse
 
 from .config import Config
 from .redis_queue import RedisQueue
@@ -30,6 +36,33 @@ logging.basicConfig(
     format="%(asctime)s - %(name)s - %(levelname)s - %(message)s"
 )
 logger = logging.getLogger(__name__)
+
+# Configure Langfuse observability (SDK v3 with manual instrumentation)
+# LiteLLM callbacks don't work properly with Langfuse SDK v3, so we use manual tracing
+# Requires environment variables: LANGFUSE_PUBLIC_KEY, LANGFUSE_SECRET_KEY, LANGFUSE_OTEL_HOST
+# Documentation: https://langfuse.com/docs/observability/sdk/python/overview
+langfuse_client = None
+if all([
+    os.getenv("LANGFUSE_PUBLIC_KEY"),
+    os.getenv("LANGFUSE_SECRET_KEY"),
+    os.getenv("LANGFUSE_OTEL_HOST")
+]):
+    # Set environment variables for Langfuse SDK v3
+    os.environ["LANGFUSE_HOST"] = os.getenv("LANGFUSE_OTEL_HOST")
+
+    # Enable debug logging for Langfuse
+    import logging as stdlib_logging
+    stdlib_logging.getLogger("langfuse").setLevel(stdlib_logging.DEBUG)
+
+    # Initialize Langfuse client
+    langfuse_client = Langfuse(
+        public_key=os.getenv("LANGFUSE_PUBLIC_KEY"),
+        secret_key=os.getenv("LANGFUSE_SECRET_KEY"),
+        host=os.getenv("LANGFUSE_OTEL_HOST")
+    )
+    logger.info(f"Langfuse observability enabled (SDK v3, host: {os.getenv('LANGFUSE_OTEL_HOST')})")
+else:
+    logger.info("Langfuse observability disabled (missing required environment variables)")
 
 # Global state
 config = Config()
@@ -170,52 +203,353 @@ async def switch_model(target_model: str) -> None:
 
 
 async def forward_request(backend_url: str, request_data: dict) -> dict:
-    """Forward request to backend LLM server with cancellation support."""
-    session = None
+    """Forward request to backend LLM server using LiteLLM with cancellation support."""
     try:
-        session = aiohttp.ClientSession()
-        async with session.post(
-            f"{backend_url}/chat/completions",
-            json=request_data,
-            timeout=aiohttp.ClientTimeout(total=config.request_timeout)
-        ) as response:
-            if response.status != 200:
-                error_text = await response.text()
-                raise HTTPException(
-                    status_code=response.status,
-                    detail=f"Backend error: {error_text}"
+        # Extract model name and add openai/ prefix for LiteLLM routing
+        model = request_data.get("model", "unknown")
+        if not model.startswith("openai/"):
+            model = f"openai/{model}"
+
+        # Langfuse tracing (manual instrumentation for SDK v3)
+        if langfuse_client:
+            with langfuse_client.start_as_current_generation(
+                name="llm-completion",
+                model=request_data.get("model"),  # Original model name (not openai/ prefixed)
+                input=request_data.get("messages"),
+                metadata={
+                    "backend_url": backend_url,
+                    "stream": False,
+                    **{k: v for k, v in request_data.items()
+                       if k not in ["model", "messages", "stream"]}
+                }
+            ) as generation:
+                # Use LiteLLM for standardized OpenAI-compatible forwarding
+                response = await acompletion(
+                    model=model,
+                    messages=request_data.get("messages", []),
+                    api_base=backend_url,
+                    api_key="dummy-key",  # Required by LiteLLM but not validated by llama-server
+                    stream=False,
+                    timeout=config.request_timeout,
+                    # Pass through all other OpenAI parameters
+                    **{k: v for k, v in request_data.items()
+                       if k not in ["model", "messages", "stream"]}
                 )
-            return await response.json()
+
+                # Update generation with output and usage
+                generation.update(
+                    output=response.choices[0].message.content if response.choices else None
+                )
+                if response.usage:
+                    generation.update(usage_details={
+                        "input": response.usage.prompt_tokens,
+                        "output": response.usage.completion_tokens,
+                        "total": response.usage.total_tokens
+                    })
+                # Flush to send trace immediately
+                langfuse_client.flush()
+        else:
+            # No Langfuse tracing - direct LiteLLM call
+            response = await acompletion(
+                model=model,
+                messages=request_data.get("messages", []),
+                api_base=backend_url,
+                api_key="dummy-key",  # Required by LiteLLM but not validated by llama-server
+                stream=False,
+                timeout=config.request_timeout,
+                # Pass through all other OpenAI parameters
+                **{k: v for k, v in request_data.items()
+                   if k not in ["model", "messages", "stream"]}
+            )
+
+        # Convert ModelResponse to dict for consistency
+        return response.model_dump() if hasattr(response, 'model_dump') else dict(response)
+
     except asyncio.CancelledError:
-        # Immediately close session on cancellation to abort HTTP request
-        if session and not session.closed:
-            await session.close()
+        logger.info("Request forwarding cancelled")
         raise
-    finally:
-        # Clean up session
-        if session and not session.closed:
-            await session.close()
+    except Exception as e:
+        logger.error(f"LiteLLM forward error: {e}")
+        # Re-raise as HTTPException for FastAPI
+        if isinstance(e, HTTPException):
+            raise
+        raise HTTPException(
+            status_code=500,
+            detail=f"Backend error: {str(e)}"
+        )
+
+
+async def forward_embedding(backend_url: str, request_data: dict) -> dict:
+    """Forward embedding request to backend LLM server using LiteLLM with Langfuse tracing."""
+    try:
+        # Extract model name and add openai/ prefix for LiteLLM routing
+        model = request_data.get("model", "unknown")
+        if not model.startswith("openai/"):
+            model = f"openai/{model}"
+
+        # Langfuse tracing (manual instrumentation for SDK v3)
+        if langfuse_client:
+            with langfuse_client.start_as_current_generation(
+                name="llm-embedding",
+                model=request_data.get("model"),  # Original model name (not openai/ prefixed)
+                input=request_data.get("input"),
+                metadata={
+                    "backend_url": backend_url,
+                    **{k: v for k, v in request_data.items()
+                       if k not in ["model", "input"]}
+                }
+            ) as generation:
+                # Use LiteLLM for standardized OpenAI-compatible embedding
+                response = await aembedding(
+                    model=model,
+                    input=request_data.get("input", []),
+                    api_base=backend_url,
+                    api_key="dummy-key",  # Required by LiteLLM but not validated by backend
+                    timeout=config.request_timeout,
+                    # Pass through all other OpenAI parameters
+                    **{k: v for k, v in request_data.items()
+                       if k not in ["model", "input"]}
+                )
+
+                # Update generation with output (embedding count and dimensions)
+                if response.data:
+                    generation.update(
+                        output=f"{len(response.data)} embeddings generated"
+                    )
+                if response.usage:
+                    generation.update(usage_details={
+                        "input": response.usage.prompt_tokens,
+                        "output": 0,  # Embeddings don't have output tokens
+                        "total": response.usage.total_tokens
+                    })
+                # Flush to send trace immediately
+                langfuse_client.flush()
+        else:
+            # No Langfuse tracing - direct LiteLLM call
+            response = await aembedding(
+                model=model,
+                input=request_data.get("input", []),
+                api_base=backend_url,
+                api_key="dummy-key",
+                timeout=config.request_timeout,
+                # Pass through all other OpenAI parameters
+                **{k: v for k, v in request_data.items()
+                   if k not in ["model", "input"]}
+            )
+
+        # Convert EmbeddingResponse to dict for consistency
+        return response.model_dump() if hasattr(response, 'model_dump') else dict(response)
+
+    except asyncio.CancelledError:
+        logger.info("Embedding request cancelled")
+        raise
+    except Exception as e:
+        logger.error(f"LiteLLM embedding error: {e}")
+        # Re-raise as HTTPException for FastAPI
+        if isinstance(e, HTTPException):
+            raise
+        raise HTTPException(
+            status_code=500,
+            detail=f"Backend embedding error: {str(e)}"
+        )
 
 
 async def stream_response(backend_url: str, request_data: dict):
-    """Stream response from backend."""
-    async with aiohttp.ClientSession() as session:
-        async with session.post(
-            f"{backend_url}/chat/completions",
-            json=request_data,
-            timeout=aiohttp.ClientTimeout(total=config.request_timeout)
-        ) as response:
-            if response.status != 200:
-                error_text = await response.text()
-                raise HTTPException(
-                    status_code=response.status,
-                    detail=f"Backend error: {error_text}"
-                )
+    """Stream response from backend using LiteLLM."""
+    try:
+        # Extract model name and add openai/ prefix for LiteLLM routing
+        model = request_data.get("model", "unknown")
+        if not model.startswith("openai/"):
+            model = f"openai/{model}"
 
-            # Stream the response chunks
-            async for chunk in response.content.iter_any():
+        # Langfuse tracing for streaming (manual instrumentation for SDK v3)
+        # Note: Can't use context manager with streaming, so we manually start/end
+        generation = None
+        accumulated_content = []
+        total_tokens = {"input": 0, "output": 0, "total": 0}
+
+        if langfuse_client:
+            # Start generation without context manager (manual lifecycle management)
+            generation = langfuse_client.start_generation(
+                name="llm-completion-stream",
+                model=request_data.get("model"),  # Original model name
+                input=request_data.get("messages"),
+                metadata={
+                    "backend_url": backend_url,
+                    "stream": True,
+                    **{k: v for k, v in request_data.items()
+                       if k not in ["model", "messages", "stream"]}
+                }
+            )
+
+        try:
+            # Use LiteLLM for streaming
+            response = await acompletion(
+                model=model,
+                messages=request_data.get("messages", []),
+                api_base=backend_url,
+                api_key="dummy-key",
+                stream=True,
+                stream_timeout=config.request_timeout,
+                # Pass through all other OpenAI parameters
+                **{k: v for k, v in request_data.items()
+                   if k not in ["model", "messages", "stream"]}
+            )
+
+            # Stream chunks in SSE format
+            async for chunk in response:
                 if chunk:
-                    yield chunk
+                    # LiteLLM returns ModelResponse chunks, convert to JSON bytes
+                    chunk_dict = chunk.model_dump() if hasattr(chunk, 'model_dump') else dict(chunk)
+
+                    # Accumulate content for Langfuse
+                    if generation and chunk_dict.get("choices"):
+                        for choice in chunk_dict["choices"]:
+                            delta = choice.get("delta", {})
+                            if "content" in delta and delta["content"]:
+                                accumulated_content.append(delta["content"])
+
+                    # Track usage stats
+                    if chunk_dict.get("usage"):
+                        usage = chunk_dict["usage"]
+                        total_tokens["input"] = usage.get("prompt_tokens", 0)
+                        total_tokens["output"] = usage.get("completion_tokens", 0)
+                        total_tokens["total"] = usage.get("total_tokens", 0)
+
+                    # Format as SSE event
+                    yield f"data: {json.dumps(chunk_dict)}\n\n".encode('utf-8')
+
+            # Send completion signal
+            yield b"data: [DONE]\n\n"
+
+        finally:
+            # Update and end Langfuse generation
+            if generation:
+                # Update with output
+                if accumulated_content:
+                    generation.update(output="".join(accumulated_content))
+                # Update with usage
+                if total_tokens["total"] > 0:
+                    generation.update(usage_details={
+                        "input": total_tokens["input"],
+                        "output": total_tokens["output"],
+                        "total": total_tokens["total"]
+                    })
+                # End the generation
+                generation.end()
+                # Flush to send trace immediately
+                langfuse_client.flush()
+
+    except asyncio.CancelledError:
+        logger.info("Streaming cancelled")
+        raise
+    except Exception as e:
+        logger.error(f"LiteLLM streaming error: {e}")
+        error_data = {"error": {"message": str(e), "type": "server_error"}}
+        yield f"data: {json.dumps(error_data)}\n\n".encode('utf-8')
+
+
+async def enqueue_and_wait(
+    job_id: str,
+    model: str,
+    request_data: dict,
+    request: Request,
+    job_type: str = "completion"
+) -> dict:
+    """
+    Unified queue logic for all endpoints.
+
+    Enqueues job to Redis, waits for worker to process it, handles client
+    disconnection and timeouts. Returns result dict or raises HTTPException.
+    """
+    if not redis_queue:
+        raise HTTPException(
+            status_code=503,
+            detail="Queue service not available"
+        )
+
+    # Increment total requests metric
+    async with metrics_lock:
+        metrics["total_requests"] += 1
+
+    # Create future for result
+    request_future = asyncio.Future()
+    pending_futures[job_id] = request_future
+
+    try:
+        # Enqueue job
+        await redis_queue.enqueue(
+            job_id=job_id,
+            model=model,
+            request_data=request_data,
+            job_type=job_type
+        )
+        logger.info(f"Enqueued {job_type} job {job_id} for model {model}")
+
+        # Create disconnection checker task
+        async def check_disconnection():
+            """Periodically check if client disconnected."""
+            while not request_future.done():
+                if await request.is_disconnected():
+                    logger.info(f"Client disconnected for job {job_id}")
+                    if not request_future.done():
+                        request_future.cancel()
+                        logger.info(f"Job {job_id} was cancelled by client")
+                    break
+                # Check more frequently (0.1s) to catch n8n workflow cancellations faster
+                await asyncio.sleep(0.1)
+
+        disconnection_task = asyncio.create_task(check_disconnection())
+
+        try:
+            # Wait for result with timeout
+            result = await asyncio.wait_for(
+                request_future,
+                timeout=config.request_timeout + 300  # Extra buffer for model switching
+            )
+            return result
+        finally:
+            # Cancel disconnection checker
+            disconnection_task.cancel()
+            try:
+                await disconnection_task
+            except asyncio.CancelledError:
+                pass
+
+    except asyncio.TimeoutError:
+        logger.warning(f"Job {job_id} timed out")
+        async with metrics_lock:
+            metrics["failed_requests"] += 1
+        # Clean up future (won't be processed by worker)
+        pending_futures.pop(job_id, None)
+        raise HTTPException(
+            status_code=504,
+            detail=f"Request timed out after {config.request_timeout + 300}s"
+        )
+
+    except asyncio.CancelledError:
+        # Already logged by disconnection checker
+        async with metrics_lock:
+            metrics["cancelled_requests"] += 1
+        # DON'T delete future here - let worker detect cancellation and clean up
+        raise HTTPException(
+            status_code=499,
+            detail="Request cancelled"
+        )
+
+    except HTTPException:
+        raise
+
+    except Exception as e:
+        logger.error(f"Error processing job {job_id}: {e}")
+        async with metrics_lock:
+            metrics["failed_requests"] += 1
+        # Clean up future if error happened before worker processed it
+        pending_futures.pop(job_id, None)
+        raise HTTPException(
+            status_code=500,
+            detail=f"Error processing request: {str(e)}"
+        )
 
 
 async def queue_worker(worker_id: int = 0):
@@ -241,8 +575,9 @@ async def queue_worker(worker_id: int = 0):
             job_id, job_dict = result
             model = job_dict["model"]
             request_data = job_dict["request_data"]
+            job_type = job_dict.get("job_type", "completion")  # Default to completion for backwards compatibility
 
-            logger.info(f"[Worker {worker_id}] Processing job {job_id} for model {model}")
+            logger.info(f"[Worker {worker_id}] Processing {job_type} job {job_id} for model {model}")
 
             # Track active worker
             async with metrics_lock:
@@ -289,9 +624,16 @@ async def queue_worker(worker_id: int = 0):
                 # Forward request (no lock - llama-server handles concurrency)
                 # Wrap in task so we can cancel it if client disconnects
                 model_config = config.get_model(model)
-                forward_task = asyncio.create_task(
-                    forward_request(model_config.backend_url, request_data)
-                )
+
+                # Dispatch based on job type
+                if job_type == "embedding":
+                    forward_task = asyncio.create_task(
+                        forward_embedding(model_config.backend_url, request_data)
+                    )
+                else:  # Default to completion
+                    forward_task = asyncio.create_task(
+                        forward_request(model_config.backend_url, request_data)
+                    )
 
                 # Poll for cancellation while waiting for backend (check every 0.1s for faster response)
                 while not forward_task.done():
@@ -389,6 +731,14 @@ async def lifespan(app: FastAPI):
     await asyncio.gather(*worker_tasks, return_exceptions=True)
     logger.info("All workers shut down")
 
+    # Flush Langfuse traces before shutdown
+    if langfuse_client:
+        try:
+            langfuse_client.flush()
+            logger.info("Flushed Langfuse traces")
+        except Exception as e:
+            logger.error(f"Error flushing Langfuse traces: {e}")
+
     if redis_queue:
         await redis_queue.disconnect()
     logger.info("LLM Queue Proxy shutting down")
@@ -396,8 +746,8 @@ async def lifespan(app: FastAPI):
 
 app = FastAPI(
     title="LLM Queue Proxy",
-    description="OpenAI-compatible proxy with automatic model swapping and Redis queue",
-    version="2.0.0",
+    description="OpenAI-compatible proxy with automatic model swapping, Redis queue, and LiteLLM integration",
+    version="2.1.0-litellm",
     lifespan=lifespan
 )
 
@@ -433,11 +783,19 @@ async def chat_completions(chat_request: ChatCompletionRequest, request: Request
     # Log metadata for debugging (only first time we see these headers)
     logger.info(f"Request metadata: batch_id={batch_id}, user_agent={user_agent}, client={client_ip}")
 
-    # Validate model
+    # Validate model exists
     if model not in config.list_models():
         raise HTTPException(
             status_code=400,
             detail=f"Unknown model: {model}. Available: {config.list_models()}"
+        )
+
+    # Validate model type is compatible with endpoint
+    model_config = config.get_model(model)
+    if model_config.type == "embedding":
+        raise HTTPException(
+            status_code=400,
+            detail=f"Model '{model}' is an embedding model. Use the /v1/embeddings endpoint instead."
         )
 
     if not redis_queue:
@@ -460,90 +818,53 @@ async def chat_completions(chat_request: ChatCompletionRequest, request: Request
             media_type="text/event-stream"
         )
 
-    # Non-streaming: use Redis queue
-    async with metrics_lock:
-        metrics["total_requests"] += 1
+    # Non-streaming: use Redis queue with unified enqueue_and_wait helper
+    return await enqueue_and_wait(
+        job_id=str(uuid.uuid4()),
+        model=model,
+        request_data=chat_request.model_dump(),
+        request=request,
+        job_type="completion"
+    )
 
-    # Generate unique job ID
-    job_id = str(uuid.uuid4())
 
-    # Create future for result
-    request_future = asyncio.Future()
-    pending_futures[job_id] = request_future
+@app.post("/v1/embeddings")
+async def embeddings(request: Request):
+    """OpenAI-compatible embeddings endpoint via LiteLLM with queueing."""
+    request_body = await request.json()
+    model = request_body.get("model", "unknown")
 
-    try:
-        # Enqueue job
-        await redis_queue.enqueue(
-            job_id=job_id,
-            model=model,
-            request_data=chat_request.model_dump()
-        )
-        logger.info(f"Enqueued job {job_id} for model {model}")
+    # Extract metadata headers for batch/workflow tracking
+    batch_id = request.headers.get("x-batch-id") or request.headers.get("x-correlation-id") or request.headers.get("x-request-id")
+    user_agent = request.headers.get("user-agent", "unknown")
+    client_ip = request.client.host if request.client else "unknown"
 
-        # Create disconnection checker task
-        async def check_disconnection():
-            """Periodically check if client disconnected."""
-            while not request_future.done():
-                if await request.is_disconnected():
-                    logger.info(f"Client disconnected for job {job_id}")
-                    if not request_future.done():
-                        request_future.cancel()
-                        logger.info(f"Job {job_id} was cancelled by client")
-                    break
-                # Check more frequently (0.1s) to catch n8n workflow cancellations faster
-                await asyncio.sleep(0.1)
+    # Log metadata for debugging
+    logger.info(f"Embedding request metadata: batch_id={batch_id}, user_agent={user_agent}, client={client_ip}")
 
-        disconnection_task = asyncio.create_task(check_disconnection())
-
-        try:
-            # Wait for result with timeout
-            result = await asyncio.wait_for(
-                request_future,
-                timeout=config.request_timeout + 300  # Extra buffer for model switching
-            )
-            return result
-        finally:
-            # Cancel disconnection checker
-            disconnection_task.cancel()
-            try:
-                await disconnection_task
-            except asyncio.CancelledError:
-                pass
-
-    except asyncio.TimeoutError:
-        logger.warning(f"Job {job_id} timed out")
-        async with metrics_lock:
-            metrics["failed_requests"] += 1
-        # Clean up future (won't be processed by worker)
-        pending_futures.pop(job_id, None)
+    # Validate model exists
+    if model not in config.list_models():
         raise HTTPException(
-            status_code=504,
-            detail=f"Request timed out after {config.request_timeout + 300}s"
+            status_code=400,
+            detail=f"Unknown model: {model}. Available: {config.list_models()}"
         )
 
-    except asyncio.CancelledError:
-        # Already logged by disconnection checker
-        async with metrics_lock:
-            metrics["cancelled_requests"] += 1
-        # DON'T delete future here - let worker detect cancellation and clean up
+    # Validate model type is compatible with endpoint
+    model_config = config.get_model(model)
+    if model_config.type != "embedding":
         raise HTTPException(
-            status_code=499,
-            detail="Request cancelled"
+            status_code=400,
+            detail=f"Model '{model}' is a completion model. Use the /v1/chat/completions endpoint instead."
         )
 
-    except HTTPException:
-        raise
-
-    except Exception as e:
-        logger.error(f"Error processing job {job_id}: {e}")
-        async with metrics_lock:
-            metrics["failed_requests"] += 1
-        # Clean up future if error happened before worker processed it
-        pending_futures.pop(job_id, None)
-        raise HTTPException(
-            status_code=500,
-            detail=f"Error processing request: {str(e)}"
-        )
+    # Use Redis queue with unified enqueue_and_wait helper
+    return await enqueue_and_wait(
+        job_id=str(uuid.uuid4()),
+        model=model,
+        request_data=request_body,
+        request=request,
+        job_type="embedding"
+    )
 
 
 @app.get("/health", response_model=HealthResponse)

@@ -64,11 +64,17 @@ models:
     health_url: http://localhost:8080/health
     startup_timeout: 60  # 1 minute (actual ~5-10 seconds)
 
-  huihui-qwen3-vl-30b:
-    container_name: huihui-qwen3-vl-server
+  qwen3-vl-30b:
+    container_name: qwen3-vl-server
     backend_url: http://localhost:8080/v1
     health_url: http://localhost:8080/health
-    startup_timeout: 60  # 1 minute (actual ~30-45 seconds, vision model)
+    startup_timeout: 180  # 3 minutes (30B vision model with transformers + ROCm)
+
+  lfm2-vl-1.6b:
+    container_name: lfm2-vl-server
+    backend_url: http://localhost:8080/v1
+    health_url: http://localhost:8080/health
+    startup_timeout: 30  # 30 seconds (1.6B vision model, Q8 GGUF, fast load)
 
   qwen3-30b-instruct:
     container_name: qwen-instruct-server
@@ -117,3 +123,10 @@ models:
     backend_url: http://localhost:8080/v1
     health_url: http://localhost:8080/health
     startup_timeout: 30  # 30 seconds (actual ~5-8 seconds, 128K context)
+
+  mxbai-embed-large-v1:
+    type: embedding  # Embedding model for /v1/embeddings endpoint
+    container_name: mxbai-embed-server
+    backend_url: http://localhost:8081/v1
+    health_url: http://localhost:8081/health
+    startup_timeout: 30  # 30 seconds (actual ~3-5 seconds, embedding model with ROCm GPU)

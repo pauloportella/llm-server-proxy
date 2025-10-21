@@ -1,12 +1,17 @@
 # LLM Queue Proxy Dependencies
 # Python 3.12+
+# ALL DEPENDENCIES UPDATED TO LATEST STABLE VERSIONS
 
 # Web framework
-fastapi==0.119.0
-uvicorn[standard]==0.37.0
+fastapi==0.119.1
+uvicorn[standard]==0.38.0
 
 # HTTP client
-aiohttp==3.13.0
+aiohttp==3.13.1
+httpx==0.28.1  # Required for Langfuse SDK custom headers (Cloudflare Access)
+
+# LLM proxy/routing library (ACTUAL latest stable version from PyPI)
+litellm==1.78.5
 
 # YAML config
 pyyaml==6.0.3
@@ -14,8 +19,16 @@ pyyaml==6.0.3
 # Docker SDK
 docker==7.1.0
 
-# Pydantic (included with FastAPI but pinned for clarity)
-pydantic==2.12.2
+# Pydantic
+pydantic==2.12.3
 
 # Redis queue (async support)
 redis[asyncio]==6.4.0
+
+# Observability and tracing
+langfuse==3.8.0
+
+# OpenTelemetry for Langfuse OTEL integration
+opentelemetry-api==1.38.0
+opentelemetry-sdk==1.38.0
+opentelemetry-exporter-otlp-proto-grpc==1.38.0
