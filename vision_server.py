@@ -9,24 +9,17 @@ from fastapi import FastAPI
 from fastapi.responses import StreamingResponse
 from pydantic import BaseModel, ConfigDict
 from typing import List, Dict, Any, Union, Optional
-from transformers import Qwen3VLMoeForConditionalGeneration, AutoProcessor, TextIteratorStreamer, BitsAndBytesConfig
+from transformers import Qwen3VLMoeForConditionalGeneration, AutoProcessor, TextIteratorStreamer
 from threading import Thread
 
 app = FastAPI(title="Qwen3-VL Vision Server")
 
-# Load model at startup from local path with 8-bit quantization
-MODEL_PATH = "/models/qwen3-vl-30b-instruct"
-print(f"Loading Qwen3-VL-30B-A3B-Instruct model from {MODEL_PATH} (8-bit quantization)...")
-
-# Configure 8-bit quantization
-quantization_config = BitsAndBytesConfig(
-    load_in_8bit=True,
-    llm_int8_threshold=6.0,
-)
-
+# Load model at startup from local path
+MODEL_PATH = "/models/huggingface/qwen3-vl-30b-instruct"
+print(f"Loading Qwen3-VL-30B-A3B-Instruct model from {MODEL_PATH}...")
 model = Qwen3VLMoeForConditionalGeneration.from_pretrained(
     MODEL_PATH,
-    quantization_config=quantization_config,
+    torch_dtype=torch.bfloat16,
     attn_implementation="sdpa",  # PyTorch SDPA (no flash-attn needed)
     device_map="auto",
     local_files_only=True,
@@ -137,8 +130,10 @@ async def chat_completions(request: ChatCompletionRequest):
         }
     }
 
-def stream_generator(inputs, request):
+async def stream_generator(inputs, request):
     """Generate streaming response in SSE format"""
+    import asyncio
+
     # Create streamer
     streamer = TextIteratorStreamer(
         processor.tokenizer,
@@ -171,6 +166,7 @@ def stream_generator(inputs, request):
             }]
         }
         yield f"data: {json.dumps(chunk)}\n\n"
+        await asyncio.sleep(0)  # Force yield to event loop
 
     # Send final chunk
     final_chunk = {
