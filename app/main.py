@@ -231,6 +231,7 @@ async def forward_request(backend_url: str, request_data: dict) -> dict:
                     api_key="dummy-key",  # Required by LiteLLM but not validated by llama-server
                     stream=False,
                     timeout=config.request_timeout,
+                    allowed_openai_params=["reasoning_effort"],  # Allow reasoning_effort for gpt-oss models
                     # Pass through all other OpenAI parameters
                     **{k: v for k, v in request_data.items()
                        if k not in ["model", "messages", "stream"]}
@@ -257,6 +258,7 @@ async def forward_request(backend_url: str, request_data: dict) -> dict:
                 api_key="dummy-key",  # Required by LiteLLM but not validated by llama-server
                 stream=False,
                 timeout=config.request_timeout,
+                allowed_openai_params=["reasoning_effort"],  # Allow reasoning_effort for gpt-oss models
                 # Pass through all other OpenAI parameters
                 **{k: v for k, v in request_data.items()
                    if k not in ["model", "messages", "stream"]}
@@ -391,6 +393,7 @@ async def stream_response(backend_url: str, request_data: dict):
                 api_key="dummy-key",
                 stream=True,
                 stream_timeout=config.request_timeout,
+                allowed_openai_params=["reasoning_effort"],  # Allow reasoning_effort for gpt-oss models
                 # Pass through all other OpenAI parameters
                 **{k: v for k, v in request_data.items()
                    if k not in ["model", "messages", "stream"]}
