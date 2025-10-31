@@ -15,14 +15,19 @@ echo -e "${BLUE}LLM Model Containers Update Script${NC}"
 echo -e "${BLUE}========================================${NC}"
 echo ""
 
-# Step 1: Pull latest image
-echo -e "${YELLOW}[1/3]${NC} Pulling latest Docker image: ${IMAGE}"
+# Step 1: Pull latest image and build embedding server
+echo -e "${YELLOW}[1/4]${NC} Pulling latest Docker image: ${IMAGE}"
 docker pull "${IMAGE}"
 echo -e "${GREEN}✓ Image pulled successfully${NC}"
 echo ""
 
+echo -e "${YELLOW}[1.5/4]${NC} Building embedding server image..."
+docker build -t mxbai-embed-server -f ../Dockerfile.embeddings ..
+echo -e "${GREEN}✓ Embedding server built successfully${NC}"
+echo ""
+
 # Step 2: Stop and remove existing containers
-echo -e "${YELLOW}[2/3]${NC} Stopping and removing existing model containers..."
+echo -e "${YELLOW}[2/4]${NC} Stopping and removing existing model containers..."
 
 CONTAINERS=(
   "gpt-oss-server"
@@ -42,6 +47,7 @@ CONTAINERS=(
   "lfm2-1.2b-extract-server"
   "llama-3.2-3b-server"
   "qwen3-vl-server"
+  "mxbai-embed-server"
 )
 
 for container in "${CONTAINERS[@]}"; do
@@ -56,7 +62,7 @@ done
 echo ""
 
 # Step 3: Create new containers
-echo -e "${YELLOW}[3/3]${NC} Creating new model containers..."
+echo -e "${YELLOW}[3/4]${NC} Creating new model containers..."
 echo ""
 
 # GPT-OSS-120B (ROCm 7 RC - 2x faster prompt processing)
@@ -283,6 +289,18 @@ docker create --name qwen3-vl-server -p 8080:8080 \
   qwen3-vl-vision-server:latest > /dev/null
 echo -e "${GREEN}✓${NC}"
 
+# MXBAI-Embed-Large-v1 Embedding Model (Custom FastAPI server with ROCm PyTorch)
+echo -n "  Creating mxbai-embed-server... "
+docker create --name mxbai-embed-server -p 8081:8080 \
+  --device /dev/dri --device /dev/kfd \
+  -v "${MODEL_MOUNT}"/mxbai-embed:/root/.cache/huggingface \
+  -v /opt/rocm:/opt/rocm:ro \
+  -e HSA_OVERRIDE_GFX_VERSION=11.0.0 \
+  -e LD_LIBRARY_PATH=/opt/rocm/lib \
+  -e PATH=/opt/rocm/bin:/usr/local/bin:/usr/bin:/bin \
+  mxbai-embed-server:latest > /dev/null
+echo -e "${GREEN}✓${NC}"
+
 CONTAINERS=(
   "gpt-oss-server"
   "qwen-server"
@@ -302,6 +320,7 @@ CONTAINERS=(
   "llama-3.2-3b-server"
   "lfm2-vl-server"
   "qwen3-vl-server"
+  "mxbai-embed-server"
 )
 
 echo ""
@@ -311,9 +330,10 @@ echo -e "${BLUE}========================================${NC}"
 echo ""
 echo "Summary:"
 echo "  • Backend: ROCm 7 RC (${IMAGE})"
-echo "  • Containers created: 18 models"
-echo "    - 17 llama.cpp (ROCm 7 RC)"
+echo "  • Containers created: 19 models"
+echo "    - 16 llama.cpp (ROCm 7 RC)"
 echo "    - 1 transformers (Qwen3-VL-30B)"
+echo "    - 1 embedding (MXBAI-Embed-Large-v1, ROCm PyTorch)"
 echo "  • Model mount: ${MODEL_MOUNT}"
 echo ""
 echo "ROCm 7 RC Benefits:"
